@@ -9,6 +9,9 @@ const tree = {
     } as RecursiveRecord,
     "readme.md": "# myLearn new project",
     "config.json": "{}",
+    ".mylearn": {
+        cache: {} as any,
+    },
 };
 
 export type ProjectTree = typeof tree;
