@@ -15,7 +15,6 @@ import { watch, loadSnapshot } from "../src/maintain/watch.ts";
 import {
     parseSamples,
     validateSolution,
-    findProblemByPid,
     submitSolution,
     maintain,
 } from "../src/provider/luogu/maintain.ts";
@@ -180,21 +179,6 @@ describe("parseSamples", () => {
     test("skips sections missing a paired block", () => {
         const partial = description.split(/### 样例 2/)[0] + "### 样例 2\n\n**输入**\n\n```text\nx\n```";
         assert.deepEqual(parseSamples(partial), [{ input: "3 4\n5 6 4", output: "14" }]);
-    });
-});
-
-describe("findProblemByPid", () => {
-    test("finds the note dir by pid prefix across categories", () => {
-        const root = tmpRoot();
-        const dir = path.join(root, "content", "graph", "P4001 狼", "problem.md");
-        fs.mkdirSync(path.dirname(dir), { recursive: true });
-        fs.writeFileSync(dir, "x");
-        try {
-            assert.equal(findProblemByPid(root, "P4001"), path.dirname(dir));
-            assert.throws(() => findProblemByPid(root, "P9999"), /No note found/);
-        } finally {
-            fs.rmSync(root, { recursive: true, force: true });
-        }
     });
 });
 

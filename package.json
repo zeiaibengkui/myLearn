@@ -4,7 +4,7 @@
     "description": "",
     "main": "index.js",
     "scripts": {
-        "test": "tsx --test tests/fetch.test.ts tests/maintain.test.ts",
+        "test": "tsx --test tests/fetch.test.ts tests/maintain.test.ts tests/ai.test.ts",
         "run": "pnpx tsx index.ts"
     },
     "keywords": [],
@@ -20,8 +20,10 @@
     "packageManager": "pnpm@11.23.0",
     "type": "module",
     "dependencies": {
+        "@modelcontextprotocol/sdk": "^1.30.0",
         "commander": "^15.0.0",
-        "gray-matter": "^4.0.3"
+        "gray-matter": "^4.0.3",
+        "zod": "^4.5.4"
     },
     "devDependencies": {
         "@types/node": "^26.3.0",

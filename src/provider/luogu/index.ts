@@ -7,7 +7,8 @@
 import path from "node:path";
 import { program } from "../../utils/program.ts";
 import { importDraft } from "../../utils/fetcher.ts";
-import { findProblemByPid, submitSolution } from "./maintain.ts";
+import { resolveNote } from "../../ai/problems.ts";
+import { submitSolution } from "./maintain.ts";
 import fetchLuogu from "./fetch.ts";
 
 const luogu = program
@@ -33,9 +34,13 @@ luogu
     .command("submit")
     .description("Validate a C++ solution against a note's samples, then archive it on success")
     .argument("<solution>", "solver .cpp file")
-    .requiredOption("-p, --pid <pid>", "Luogu pid recorded in the note title, e.g. P4001")
-    .action(async (solution: string, options: { pid: string }) => {
-        const dir = findProblemByPid(globalThis.projectRoot, options.pid);
+    .option("-p, --problem <problem>", "note path or pattern (exactly one match)")
+    .action(async (solution: string, options: { problem?: string }) => {
+        const spec = options.problem ?? program.opts().problem;
+        if (!spec) {
+            program.error("'luogu submit' needs -p <problem> (a note path or a pattern matching exactly one note)");
+        }
+        const dir = resolveNote(globalThis.projectRoot, spec);
         const { result, saved } = await submitSolution(dir, path.resolve(solution));
         result.cases.forEach((c, i) => {
             if (c.passed) {

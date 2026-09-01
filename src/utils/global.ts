@@ -16,9 +16,9 @@ const configPath = path.join(globalThis.projectRoot, ".mylearn", "config.json");
 if (fs.existsSync(configPath)) {
     const configContent = fs.readFileSync(configPath, "utf-8");
     globalThis.projectConfig = JSON.parse(configContent);
-    console.log(`Working in ${projectRoot}`);
+    console.error(`Working in ${projectRoot}`);
 } else {
-    console.log(
+    console.error(
         "No config found." +
             " Please run 'myLearn init <dir>' to initialize a new project."
     );

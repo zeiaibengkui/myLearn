@@ -6,19 +6,27 @@
 import path from "node:path";
 import { program } from "./program.ts";
 import initProject from "../project/init.ts";
-import { openProblem } from "./noteFile.ts";
 import { watch, watchContinuous, type NoteDiff } from "../maintain/watch.ts";
 import {
-    findProblemByPid,
     maintain as maintainLuogu,
 } from "../provider/luogu/maintain.ts";
+import { openNote, resolveNote } from "../ai/problems.ts";
 import "../provider/luogu/index.ts";
 import "../provider/pdf/index.ts";
+import "../provider/ai/index.ts";
 
 program
     .name("myLearn")
     .description("nodejs cli learning tool")
     .version("0.8.0");
+
+// global -p: which note the command operates on. Providers that take it
+// (`ai`, `luogu submit`, `maintain luogu`) define -p on their subcommand too,
+// so both positions work: `-p <x> <verb>` and `<verb> ... -p <x>`.
+program.option(
+    "-p, --problem <problem>",
+    "note path, or a pattern matching exactly one note in the problemset"
+);
 
 program
     .command("init")
@@ -44,14 +52,9 @@ const maintain = program
 
 maintain
     .command("watch")
-    .description("Compare content/ against .mylearn/index/latest.json and update the snapshot")
-    .option("--watch", "keep running and report changes as they happen")
-    .action((options: { watch?: boolean }) => {
+    .description("Compare content/ against .mylearn/index/latest.json and update the snapshot (one-shot)")
+    .action(() => {
         printDiff(watch(globalThis.projectRoot));
-        if (options.watch) {
-            watchContinuous(globalThis.projectRoot, printDiff);
-            console.log("Watching content/ for changes... (ctrl-c to stop)");
-        }
     });
 
 // provider-scoped maintain: dispatches to provider/<provider>/maintain.ts's
@@ -59,13 +62,17 @@ maintain
 maintain
     .command("luogu")
     .description("Re-validate the C++ sources saved in a Luogu note against its samples")
-    .requiredOption("-p, --pid <pid>", "Luogu pid recorded in the note title, e.g. P4001")
-    .action(async (options: { pid: string }) => {
-        const dir = findProblemByPid(globalThis.projectRoot, options.pid);
-        const report = await maintainLuogu(openProblem(dir));
+    .option("-p, --problem <problem>", "note path or pattern (exactly one match)")
+    .action(async (options: { problem?: string }) => {
+        const spec = options.problem ?? program.opts().problem;
+        if (!spec) {
+            program.error("'maintain luogu' needs -p <problem> (a note path or a pattern matching exactly one note)");
+        }
+        const note = openNote(globalThis.projectRoot, spec);
+        const report = await maintainLuogu(note);
         if (!report.files.length) {
             console.log(
-                `No saved C++ sources for "${report.title}" — first: myLearn luogu submit <solution.cpp> -p ${options.pid}`
+                `No saved C++ sources for "${report.title}" — first: myLearn luogu submit <solution.cpp> -p ${spec}`
             );
             process.exitCode = 1;
             return;
@@ -91,6 +98,29 @@ maintain
                 : "Some saved solutions fail."
         );
         process.exitCode = report.ok ? 0 : 1;
+    });
+
+// the long-running watcher: the base for keeping the index fresh while
+// claude/codex sessions are connected (replaces the old `maintain watch --watch`)
+program
+    .command("daemon")
+    .description("Long-running watcher: keep .mylearn/index/latest.json fresh while it runs")
+    .action(() => {
+        const root = globalThis.projectRoot;
+        printDiff(watch(root));
+        const stop = watchContinuous(root, (diff) => {
+            console.log(`[${new Date().toISOString()}] files changed:`);
+            printDiff(diff);
+        });
+        console.log(
+            `daemon running (pid ${process.pid}); watching ${path.join(root, "content")} — ctrl-c to stop`
+        );
+        process.on("SIGINT", () => {
+            console.log("daemon stopped.");
+            stop();
+            // no process.exit: closing the watcher empties the event loop and
+            // the process exits naturally, flushing stdout
+        });
     });
 
 await program.parseAsync();

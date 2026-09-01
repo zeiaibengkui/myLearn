@@ -193,25 +193,6 @@ export async function validateSolution(
     return { title: problem.title, cases: results, ok: results.every((r) => r.passed) };
 }
 
-/** Locate a note directory by its pid: content/<category>/<title>/ where
- *  the directory name starts with "<pid> " (title = "P4001 <name>"). */
-export function findProblemByPid(root: string, pid: string): string {
-    const content = path.join(root, "content");
-    if (!fs.existsSync(content)) {
-        throw new Error(`No content directory: ${content}`);
-    }
-    for (const category of fs.readdirSync(content)) {
-        const cat = path.join(content, category);
-        if (!fs.statSync(cat).isDirectory()) continue;
-        for (const entry of fs.readdirSync(cat)) {
-            const dir = path.join(cat, entry);
-            if (!fs.statSync(dir).isDirectory()) continue;
-            if (entry === pid || entry.startsWith(`${pid} `)) return dir;
-        }
-    }
-    throw new Error(`No note found for pid ${pid} in ${content}`);
-}
-
 /** The note's directory from a live Problem. The model itself carries no
  *  path (pure interfaces), so the root comes from the global config set at
  *  CLI startup (global.ts). */

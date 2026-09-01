@@ -3,7 +3,8 @@
 A Node.js CLI for managing a personal competitive-programming problem knowledge base.
 Problems and solutions live on disk as markdown files under a category-organized tree;
 problems are imported from Luogu (pid or URL) or local PDFs, and C++ solutions can be
-validated automatically against the problem's sample cases.
+validated automatically against the problem's sample cases. It also ships an MCP server
+so claude / codex can read and submit to your problemset directly.
 
 ## Requirements
 
@@ -31,14 +32,21 @@ cd /path/to/my-problems && pnpx tsx /path/to/myLearn/index.ts luogu fetch P4001
 ```
 myLearn init <dir>                          # write a project template tree
 myLearn luogu fetch <source> [-c category]  # import a Luogu problem (pid or URL)
-myLearn luogu submit <sol.cpp> -p <pid>     # validate a solution, archive on success
+myLearn luogu submit <sol.cpp> -p <problem> # validate a solution, archive on success
 myLearn pdf import <file> -c category       # import a local PDF as a note
-myLearn maintain watch [--watch]            # diff content/ against the index snapshot
-myLearn maintain luogu -p <pid>             # revalidate the solution files stored in a note
+myLearn ai "<prompt>" -p <problem>          # print a paste-ready prompt bundle
+myLearn ai serve                            # run the myLearn MCP server over stdio
+myLearn maintain watch                      # diff content/ against the index snapshot (one-shot)
+myLearn maintain luogu -p <problem>         # revalidate the solution files stored in a note
+myLearn daemon                              # watcher that keeps the index snapshot fresh
 ```
 
 Every command runs as `pnpx tsx index.ts <command>` — from the project root of the
 knowledge base.
+
+`-p/--problem` selects a note in a provider-agnostic way: either a path (absolute,
+CWD/project/content-relative) or a pattern that matches exactly one note title. It can
+go before or after the verb (`-p P5985 luogu submit sol.cpp` or `luogu submit sol.cpp -p P5985`).
 
 ### Example
 
@@ -51,7 +59,23 @@ pnpx tsx /path/to/myLearn/index.ts luogu submit solution.cpp -p P4001 # runs the
 pnpx tsx /path/to/myLearn/index.ts maintain luogu -p P4001            # re-runs the samples on the archived solution
 pnpx tsx /path/to/myLearn/index.ts maintain watch                     # what changed since the last snapshot (.mylearn/index/latest.json)
 pnpx tsx /path/to/myLearn/index.ts pdf import notes.pdf -c course     # import a local PDF via markitdown
+pnpx tsx /path/to/myLearn/index.ts ai "Solve this problem." -p P4001  # paste-ready prompt bundle (no API call)
+pnpx tsx /path/to/myLearn/index.ts daemon                             # keep the index snapshot fresh (Ctrl-C stops)
 ```
+
+### AI / MCP
+
+`ai serve` speaks JSON-RPC over stdio (MCP) — stdout carries only the protocol, so
+log output goes to stderr. Register it as a server in your agent:
+
+```bash
+# Claude Code: the command runs from inside an initialized project
+claude mcp add mylearn -- pnpx tsx /path/to/myLearn/index.ts ai serve
+```
+
+The server exposes `list_problems`, `read_problem` and `submit_solution` (validate
+against the note's samples, archive on success — same engine as `luogu submit`), so an
+agent can browse the problemset and check in solutions without leaving its session.
 
 ## Project layout
 
@@ -89,12 +113,22 @@ pnpx tsx /path/to/myLearn/index.ts pdf import notes.pdf -c course     # import a
   `src/fetch/` no longer exists, the source domain is chosen by the CLI verb.
   Luogu's fetcher parses the `lentille-context` JSON payload and validates every
   redirect against the Luogu host allowlist; PDF's shells out to `markitdown`.
+- **Note selection** — `src/ai/problems.ts` resolves `-p/--problem`: path candidates
+  first (absolute / CWD / project / content-relative), then a pattern that must match
+  exactly one note (0 → error, >1 → lists the matches). Every note-taking verb
+  (`ai`, `luogu submit`, `maintain luogu`) uses it, so the note id needn't be a Luogu pid.
+- **AI provider** — `src/provider/ai/` is the domain module: `prompt.ts` builds the
+  paste-ready bundle for `ai "<prompt>" -p`, and `server.ts` is the MCP server
+  (official MCP SDK, `McpServer` + `StdioServerTransport`) whose base tools
+  (`list_problems`, `read_problem`) sit on `src/ai/` while `submit_solution` delegates
+  to the luogu provider's `submitSolution`.
 - **Maintain** — `src/maintain/watch.ts` compares `content/` with
   `.mylearn/index/latest.json` (mtime first; a file is re-hashed only when its mtime
   changed) and reports added/changed/removed; `provider/luogu/maintain.ts` parses the
   `### 样例` sections of a note description, compiles a C++ solution with `g++`
   (no shell), runs each sample on stdin, and judges with trailing-whitespace
-  normalization (timeout → TLE, nonzero exit → runtime error).
+  normalization (timeout → TLE, nonzero exit → runtime error). `daemon` is the
+  long-running variant of the watch (one-shot diff at start, then debounced).
 
 All process invocation uses `execFile`/`spawn` (no shell) and path segments are
 sanitized, so web-sourced titles can't escape the `content/` tree.
