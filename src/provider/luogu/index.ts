@@ -1,0 +1,58 @@
+// Luogu provider. Imported for its side effect (see arg.ts): it registers
+// its own CLI on the shared global program, scoping everything Luogu under
+// the `luogu` command group.
+//   luogu fetch P4001 [-c luogu]     import a problem (pid or URL) as a note
+//   luogu submit solution.cpp -p P4001   validate + archive a solution
+
+import path from "node:path";
+import { program } from "../../utils/program.ts";
+import { fetchProblem } from "../../fetch/index.ts";
+import { openProblem } from "../../utils/noteFile.ts";
+import { findProblemByPid, submitSolution } from "./maintain.ts";
+
+const luogu = program
+    .command("luogu")
+    .description("Luogu provider: fetch problems and submit solutions");
+
+luogu
+    .command("fetch")
+    .description("Fetch a Luogu problem (pid or URL) as a note")
+    .argument("<source>", "pid like P4001, or a Luogu problem URL")
+    .option("-c, --category <category>", "target category", "luogu")
+    .action(async (source: string, options: { category: string }) => {
+        const problem = await fetchProblem(
+            globalThis.projectRoot,
+            source,
+            options.category,
+            "luogu"
+        );
+        console.log(`Saved "${problem.title}" → content/${options.category}/${problem.title}/`);
+    });
+
+luogu
+    .command("submit")
+    .description("Validate a C++ solution against a note's samples, then archive it on success")
+    .argument("<solution>", "solver .cpp file")
+    .requiredOption("-p, --pid <pid>", "Luogu pid recorded in the note title, e.g. P4001")
+    .action(async (solution: string, options: { pid: string }) => {
+        const dir = findProblemByPid(globalThis.projectRoot, options.pid);
+        const { result, saved } = await submitSolution(dir, path.resolve(solution));
+        result.cases.forEach((c, i) => {
+            if (c.passed) {
+                console.log(`  PASS  case ${i + 1}`);
+            } else {
+                const detail =
+                    c.error ??
+                    `expected ${JSON.stringify(c.expected)}, got ${JSON.stringify(c.actual)}`;
+                console.log(`  FAIL  case ${i + 1}: ${detail}`);
+            }
+        });
+        if (!saved) {
+            console.log(`Nothing saved for "${result.title}" — fixing the failing cases first.`);
+            process.exitCode = 1;
+            return;
+        }
+        console.log(
+            `All ${result.cases.length} case(s) passed — archived solution under content/ for "${result.title}".`
+        );
+    });

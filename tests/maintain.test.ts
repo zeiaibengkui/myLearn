@@ -16,7 +16,53 @@ import {
     parseSamples,
     validateSolution,
     findProblemByPid,
-} from "../src/maintain/luogu.ts";
+    submitSolution,
+    maintain,
+} from "../src/provider/luogu/maintain.ts";
+import { openProblem } from "../src/utils/noteFile.ts";
+
+const hasGpp = (() => {
+    try {
+        execFileSync("g++", ["--version"], { stdio: "ignore" });
+        return true;
+    } catch {
+        return false;
+    }
+})();
+
+// a minimal note with frontmatter + one sample (3 4 → 14)
+function writeNote(root: string): string {
+    const dir = path.join(root, "content", "cat", "P4001 demo");
+    fs.mkdirSync(dir, { recursive: true });
+    const desc = [
+        "## 样例",
+        "",
+        "### 样例 1",
+        "",
+        "**输入**",
+        "",
+        "```text",
+        "3 4",
+        "```",
+        "",
+        "**输出**",
+        "",
+        "```text",
+        "14",
+        "```",
+    ].join("\n");
+    fs.writeFileSync(
+        path.join(dir, "problem.md"),
+        `---\ntitle: P4001 demo\ncategory: cat\n---\n${desc}\n`
+    );
+    return dir;
+}
+
+function writeCpp(root: string, body: string): string {
+    const p = path.join(root, "sol.cpp");
+    fs.writeFileSync(p, body);
+    return p;
+}
 
 function tmpRoot(): string {
     return fs.mkdtempSync(path.join(os.tmpdir(), "mylearn-test-"));
@@ -153,49 +199,6 @@ describe("findProblemByPid", () => {
 });
 
 describe("validateSolution (needs g++)", () => {
-    const hasGpp = (() => {
-        try {
-            execFileSync("g++", ["--version"], { stdio: "ignore" });
-            return true;
-        } catch {
-            return false;
-        }
-    })();
-
-    // a minimal note with frontmatter + one sample (3 4 → 14)
-    function writeNote(root: string): string {
-        const dir = path.join(root, "content", "cat", "P4001 demo");
-        fs.mkdirSync(dir, { recursive: true });
-        const desc = [
-            "## 样例",
-            "",
-            "### 样例 1",
-            "",
-            "**输入**",
-            "",
-            "```text",
-            "3 4",
-            "```",
-            "",
-            "**输出**",
-            "",
-            "```text",
-            "14",
-            "```",
-        ].join("\n");
-        fs.writeFileSync(
-            path.join(dir, "problem.md"),
-            `---\ntitle: P4001 demo\ncategory: cat\n---\n${desc}\n`
-        );
-        return dir;
-    }
-
-    function writeCpp(root: string, body: string): string {
-        const p = path.join(root, "sol.cpp");
-        fs.writeFileSync(p, body);
-        return p;
-    }
-
     test("passes when the sample output matches", { skip: !hasGpp }, async () => {
         const root = tmpRoot();
         try {
@@ -246,6 +249,75 @@ describe("validateSolution (needs g++)", () => {
             const r = await validateSolution(dir, sol, 500);
             assert.equal(r.ok, false);
             assert.match(r.cases[0].error ?? "", /timeout/);
+        } finally {
+            fs.rmSync(root, { recursive: true, force: true });
+        }
+    });
+});
+
+describe("submitSolution and maintain", () => {
+    test("submit archives a passing solution and maintain re-validates it", { skip: !hasGpp }, async () => {
+        const root = tmpRoot();
+        try {
+            const dir = writeNote(root);
+            const sol = writeCpp(root, '#include <cstdio>\nint main() { printf("14\\n"); return 0; }\n');
+            const { result, saved } = await submitSolution(dir, sol);
+            assert.equal(saved, true);
+            assert.equal(result.ok, true);
+
+            // the note now holds the cpp source plus a solution md — and the
+            // proxy's live listings see both
+            const problem = openProblem(dir);
+            assert.deepEqual(problem.sourceFiles, ["sol.cpp"]);
+            assert.equal(problem.solutions.length, 1);
+            assert.match(problem.solutions[0].description, /Submitted/);
+
+            // maintain(Problem) re-validates every stored cpp (root from the
+            // global config, the same way the CLI start-up sets it)
+            const savedRoot = globalThis.projectRoot;
+            globalThis.projectRoot = root;
+            try {
+                const report = await maintain(problem);
+                assert.equal(report.ok, true);
+                assert.equal(report.files.length, 1);
+                assert.equal(report.files[0].file, "sol.cpp");
+            } finally {
+                globalThis.projectRoot = savedRoot;
+            }
+        } finally {
+            fs.rmSync(root, { recursive: true, force: true });
+        }
+    });
+
+    test("submit saves nothing when a case fails", { skip: !hasGpp }, async () => {
+        const root = tmpRoot();
+        try {
+            const dir = writeNote(root);
+            const sol = writeCpp(root, '#include <cstdio>\nint main() { printf("13\\n"); return 0; }\n');
+            const { result, saved } = await submitSolution(dir, sol);
+            assert.equal(result.ok, false);
+            assert.equal(saved, false);
+            const problem = openProblem(dir);
+            assert.deepEqual(problem.sourceFiles, []);
+            assert.deepEqual(problem.solutions, []);
+        } finally {
+            fs.rmSync(root, { recursive: true, force: true });
+        }
+    });
+
+    test("maintain reports a note without saved C++ sources as not-ok", async () => {
+        const root = tmpRoot();
+        try {
+            const dir = writeNote(root);
+            const savedRoot = globalThis.projectRoot;
+            globalThis.projectRoot = root;
+            try {
+                const report = await maintain(openProblem(dir));
+                assert.equal(report.ok, false);
+                assert.deepEqual(report.files, []);
+            } finally {
+                globalThis.projectRoot = savedRoot;
+            }
         } finally {
             fs.rmSync(root, { recursive: true, force: true });
         }

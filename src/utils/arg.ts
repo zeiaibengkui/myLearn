@@ -1,15 +1,25 @@
-import { Command } from "commander";
+// CLI wiring. Built-in verbs (init, add, maintain) live here; parts of the
+// CLI belong to their domain provider — importing the provider index file
+// registers its commands on the shared global program (side effect):
+// `import "../provider/luogu/index.ts"` gives `myLearn luogu fetch ...`.
+
 import path from "node:path";
+import { program } from "./program.ts";
 import initProject from "../project/init.ts";
 import { fetchProblem } from "../fetch/index.ts";
+import { openProblem } from "./noteFile.ts";
 import { watch, watchContinuous, type NoteDiff } from "../maintain/watch.ts";
-import { findProblemByPid, validateSolution } from "../maintain/luogu.ts";
+import {
+    findProblemByPid,
+    maintain as maintainLuogu,
+} from "../provider/luogu/maintain.ts";
+import "../provider/luogu/index.ts";
 
-const program = new Command();
 program
     .name("myLearn")
     .description("nodejs cli learning tool")
     .version("0.8.0");
+
 program
     .command("init")
     .description("Initialize a new project template")
@@ -19,7 +29,7 @@ program
     });
 program
     .command("add")
-    .description("Import a source (file or Luogu problem URL) as a problem")
+    .description("Import a source (file or Luogu problem URL) as a problem (fetchers auto-detect)")
     .argument("<source>", "source to import")
     .option("-t, --type <type>", "source type: pdf or luogu (fetchers auto-detect when omitted)")
     .requiredOption("-c, --category <category>", "target category")
@@ -44,7 +54,7 @@ function printDiff(diff: NoteDiff): void {
 
 const maintain = program
     .command("maintain")
-    .description("Maintain the knowledge base: detect changes, validate solutions")
+    .description("Maintain the knowledge base: detect changes, re-validate saved solutions")
     .action(() => {
         program.error("'maintain' needs a subcommand: watch | luogu");
     });
@@ -61,29 +71,43 @@ maintain
         }
     });
 
+// provider-scoped maintain: dispatches to provider/<provider>/maintain.ts's
+// maintain(Problem)
 maintain
     .command("luogu")
-    .description("Compile a C++ solution (g++) and validate it against a note's sample cases")
-    .argument("<solution>", "solver .cpp file")
+    .description("Re-validate the C++ sources saved in a Luogu note against its samples")
     .requiredOption("-p, --pid <pid>", "Luogu pid recorded in the note title, e.g. P4001")
-    .action(async (solution: string, options: { pid: string }) => {
+    .action(async (options: { pid: string }) => {
         const dir = findProblemByPid(globalThis.projectRoot, options.pid);
-        const result = await validateSolution(dir, solution);
-        result.cases.forEach((c, i) => {
-            if (c.passed) {
-                console.log(`  PASS  case ${i + 1}`);
+        const report = await maintainLuogu(openProblem(dir));
+        if (!report.files.length) {
+            console.log(
+                `No saved C++ sources for "${report.title}" — first: myLearn luogu submit <solution.cpp> -p ${options.pid}`
+            );
+            process.exitCode = 1;
+            return;
+        }
+        for (const f of report.files) {
+            if (f.ok) {
+                console.log(`  PASS  ${f.file}`);
             } else {
-                const detail = c.error ?? `expected ${JSON.stringify(c.expected)}, got ${JSON.stringify(c.actual)}`;
-                console.log(`  FAIL  case ${i + 1}: ${detail}`);
+                const failed = f.cases.find((c) => !c.passed);
+                console.log(
+                    `  FAIL  ${f.file}: ${
+                        f.error ??
+                        (failed
+                            ? `expected ${JSON.stringify(failed.expected)}, got ${JSON.stringify(failed.actual)}`
+                            : "no case passed")
+                    }`
+                );
             }
-        });
-        const failed = result.cases.length - result.cases.filter((c) => c.passed).length;
+        }
         console.log(
-            result.ok
-                ? `All ${result.cases.length} case(s) passed for "${result.title}".`
-                : `${failed} of ${result.cases.length} case(s) failed for "${result.title}".`
+            report.ok
+                ? `All saved solutions for "${report.title}" pass.`
+                : "Some saved solutions fail."
         );
-        process.exitCode = result.ok ? 0 : 1;
+        process.exitCode = report.ok ? 0 : 1;
     });
 
 await program.parseAsync();

@@ -1,4 +1,8 @@
-// Validate a C++ solution against a problem note's sample cases.
+// Luogu provider maintain logic: the validation engine plus the two
+// operations the CLI wires up —
+//   validateSolution / submitSolution: one C++ file against one note's samples
+//   maintain(problem):                   re-validate every C++ source already
+//                                        saved in a note
 // Samples live in the note description as "### 样例 N" sections with a
 // ```text block under **输入** and one under **输出** (see fetch/luogu.ts).
 // The solution is compiled with g++ (execFile, no shell) and each sample
@@ -10,7 +14,13 @@ import { promisify } from "node:util";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { openProblem } from "../utils/noteFile.ts";
+import type { Problem } from "../../utils/problem.ts";
+import { openProblem } from "../../utils/noteFile.ts";
+import {
+    addSolutionFile,
+    addSourceFile,
+    problemDir,
+} from "../../utils/persist.ts";
 
 const execFileAsync = promisify(execFile);
 
@@ -200,4 +210,83 @@ export function findProblemByPid(root: string, pid: string): string {
         }
     }
     throw new Error(`No note found for pid ${pid} in ${content}`);
+}
+
+/** The note's directory from a live Problem. The model itself carries no
+ *  path (pure interfaces), so the root comes from the global config set at
+ *  CLI startup (global.ts). */
+function dirOf(problem: Problem): string {
+    const root = globalThis.projectRoot ?? process.cwd();
+    return problemDir(root, problem.category, problem.title);
+}
+
+export interface FileReport {
+    file: string;
+    ok: boolean;
+    cases: CaseResult[];
+    error?: string;
+}
+
+export interface MaintainReport {
+    title: string;
+    files: FileReport[];
+    ok: boolean;
+}
+
+/** Re-validate every C++ source saved in a note (submitSolution's artifacts).
+ *  A note with no saved C++ sources reports ok: false, files: []. */
+export async function maintain(
+    problem: Problem,
+    timeoutMs = runTimeoutMs
+): Promise<MaintainReport> {
+    const dir = dirOf(problem);
+    const cpps = problem.sourceFiles.filter(
+        (f) => f.endsWith(".cpp") || f.endsWith(".cc")
+    );
+    const files: FileReport[] = [];
+    for (const file of cpps) {
+        try {
+            const result = await validateSolution(dir, path.join(dir, file), timeoutMs);
+            files.push({ file, ok: result.ok, cases: result.cases });
+        } catch (e) {
+            files.push({ file, ok: false, cases: [], error: (e as Error).message });
+        }
+    }
+    return {
+        title: problem.title,
+        files,
+        ok: files.length > 0 && files.every((f) => f.ok),
+    };
+}
+
+export interface SubmitResult {
+    result: ValidateResult;
+    saved: boolean;
+}
+
+/** Validate a solution; when it passes every sample, archive it into the
+ *  note — copy the .cpp as a source file and write a solution markdown that
+ *  embeds the code. Failing solutions save nothing. */
+export async function submitSolution(
+    dir: string,
+    solutionPath: string,
+    timeoutMs = runTimeoutMs
+): Promise<SubmitResult> {
+    const result = await validateSolution(dir, solutionPath, timeoutMs);
+    if (!result.ok) return { result, saved: false };
+
+    const sourceName = path.basename(solutionPath);
+    addSourceFile(dir, solutionPath);
+    const code = fs.readFileSync(solutionPath, "utf-8");
+    addSolutionFile(dir, {
+        title: `Solution ${path.basename(sourceName, path.extname(sourceName))}`,
+        description: [
+            `Submitted ${new Date().toISOString().slice(0, 10)} — all ${result.cases.length} sample case(s) passed.`,
+            "",
+            "```cpp",
+            code.trimEnd(),
+            "```",
+        ].join("\n"),
+    });
+    return { result, saved: true };
 }
