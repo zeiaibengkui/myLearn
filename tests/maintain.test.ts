@@ -125,7 +125,7 @@ describe("watch snapshot", () => {
 });
 
 describe("parseSamples", () => {
-    // shape produced by fetch/luogu.ts for samples: [[input, output], ...]
+    // shape produced by provider/luogu/fetch.ts for samples: [[input, output], ...]
     const description = [
         "> 洛谷 [P4001](https://www.luogu.com.cn/problem/P4001) · 难度 省选/NOI−",
         "",

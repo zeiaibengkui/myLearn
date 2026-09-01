@@ -4,7 +4,7 @@
 //   maintain(problem):                   re-validate every C++ source already
 //                                        saved in a note
 // Samples live in the note description as "### 样例 N" sections with a
-// ```text block under **输入** and one under **输出** (see fetch/luogu.ts).
+// ```text block under **输入** and one under **输出** (see ./fetch.ts).
 // The solution is compiled with g++ (execFile, no shell) and each sample
 // input is piped to the binary's stdin; stdout is compared to the expected
 // output with trailing-whitespace normalization.

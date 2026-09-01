@@ -30,9 +30,9 @@ cd /path/to/my-problems && pnpx tsx /path/to/myLearn/index.ts luogu fetch P4001
 
 ```
 myLearn init <dir>                          # write a project template tree
-myLearn add <source> -c <category>          # import source (pdf or luogu, auto-detected)
 myLearn luogu fetch <source> [-c category]  # import a Luogu problem (pid or URL)
 myLearn luogu submit <sol.cpp> -p <pid>     # validate a solution, archive on success
+myLearn pdf import <file> -c category       # import a local PDF as a note
 myLearn maintain watch [--watch]            # diff content/ against the index snapshot
 myLearn maintain luogu -p <pid>             # revalidate the solution files stored in a note
 ```
@@ -50,7 +50,7 @@ pnpx tsx /path/to/myLearn/index.ts luogu submit solution.cpp -p P4001 # runs the
                                                                       # all passed → archives the .cpp + a solution note
 pnpx tsx /path/to/myLearn/index.ts maintain luogu -p P4001            # re-runs the samples on the archived solution
 pnpx tsx /path/to/myLearn/index.ts maintain watch                     # what changed since the last snapshot (.mylearn/index/latest.json)
-pnpx tsx /path/to/myLearn/index.ts add notes.pdf -c course            # import a local PDF via markitdown
+pnpx tsx /path/to/myLearn/index.ts pdf import notes.pdf -c course     # import a local PDF via markitdown
 ```
 
 ## Project layout
@@ -79,16 +79,16 @@ pnpx tsx /path/to/myLearn/index.ts add notes.pdf -c course            # import a
 - **Proxies** — `src/utils/noteFile.ts` returns live `Problem`/`Solution` objects backed
   by a JS `Proxy`: reads hit disk, scalar writes (`title`/`category`/`description`)
   write through to `problem.md` immediately.
-- **Fetchers** — `src/fetch/` is a capability-based registry; each `Fetcher` declares
-  `canFetch(source)` and `fetchProblem` picks the first entry that claims the source.
-  `pdf` shells out to `markitdown`; `luogu` fetches a page and parses its
-  `lentille-context` JSON payload (request handling validates every redirect against
-  the Luogu host allowlist).
-- **Providers** — domain modules under `src/provider/<name>/` own their CLI and maintain
-  logic. Importing `src/provider/luogu/index.ts` (side effect) registers `luogu fetch`
-  / `luogu submit` on the shared commander instance (`src/utils/program.ts`); the
-  `maintain` verb dispatches provider subcommands to
-  `provider/<name>/maintain.ts`'s `maintain(Problem)`.
+- **Providers** — domain modules under `src/provider/<name>/` own everything domain
+  specific: the CLI (`index.ts`, imported for its side effect to self-register on the
+  shared commander instance `src/utils/program.ts`), the fetcher (`fetch.ts`), and
+  maintain logic (`maintain.ts` with `maintain(Problem)`). The `maintain` verb
+  dispatches provider subcommands accordingly. The shared fetch contract
+  (`Fetcher`/`Draft` types + `importDraft`) lives in `src/utils/fetcher.ts` — a
+  provider converts a source to a draft and saves it into the knowledge base;
+  `src/fetch/` no longer exists, the source domain is chosen by the CLI verb.
+  Luogu's fetcher parses the `lentille-context` JSON payload and validates every
+  redirect against the Luogu host allowlist; PDF's shells out to `markitdown`.
 - **Maintain** — `src/maintain/watch.ts` compares `content/` with
   `.mylearn/index/latest.json` (mtime first; a file is re-hashed only when its mtime
   changed) and reports added/changed/removed; `provider/luogu/maintain.ts` parses the

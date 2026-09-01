@@ -1,7 +1,7 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import path from "node:path";
-import type { Draft, Fetcher } from "./types.ts";
+import type { Draft, Fetcher } from "../../utils/fetcher.ts";
 
 const execFileAsync = promisify(execFile);
 const isUrl = /^https?:\/\//i;

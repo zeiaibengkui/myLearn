@@ -6,7 +6,6 @@
 import path from "node:path";
 import { program } from "./program.ts";
 import initProject from "../project/init.ts";
-import { fetchProblem } from "../fetch/index.ts";
 import { openProblem } from "./noteFile.ts";
 import { watch, watchContinuous, type NoteDiff } from "../maintain/watch.ts";
 import {
@@ -14,6 +13,7 @@ import {
     maintain as maintainLuogu,
 } from "../provider/luogu/maintain.ts";
 import "../provider/luogu/index.ts";
+import "../provider/pdf/index.ts";
 
 program
     .name("myLearn")
@@ -27,23 +27,6 @@ program
     .action((dir: string) => {
         initProject(path.resolve(dir));
     });
-program
-    .command("add")
-    .description("Import a source (file or Luogu problem URL) as a problem (fetchers auto-detect)")
-    .argument("<source>", "source to import")
-    .option("-t, --type <type>", "source type: pdf or luogu (fetchers auto-detect when omitted)")
-    .requiredOption("-c, --category <category>", "target category")
-    .action(async (source: string, options: { type?: string; category: string }) => {
-        const problem = await fetchProblem(
-            globalThis.projectRoot,
-            source,
-            options.category,
-            options.type
-        );
-        console.log(`Saved "${problem.title}" → content/${options.category}/${problem.title}/`);
-        // TODO: rebuild index via scan.ts once implemented
-    });
-
 function printDiff(diff: NoteDiff): void {
     for (const f of diff.added) console.log(`  [added]   ${f}`);
     for (const f of diff.changed) console.log(`  [changed] ${f}`);

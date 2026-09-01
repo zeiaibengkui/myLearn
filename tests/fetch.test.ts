@@ -1,6 +1,6 @@
-// Fetcher contract tests, using the built-in node:test runner via tsx.
+// Provider fetcher tests, using the built-in node:test runner via tsx.
 // Run: pnpm test            (some cases hit the network: Luogu is fetched live)
-// Filter: pnpm test -- --test-name-pattern "canFetch|resolution"  (offline-only runs)
+// Filter: pnpm test -- --test-name-pattern "canFetch|redirects"  (offline-only runs)
 //         pnpm test -- --test-name-pattern "conversion|end to end"  (network cases)
 
 import { describe, test, mock } from "node:test";
@@ -8,9 +8,9 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { fetchProblem, resolveFetcher } from "../src/fetch/index.ts";
-import parsePDF from "../src/fetch/pdf.ts";
-import fetchLuogu from "../src/fetch/luogu.ts";
+import { importDraft } from "../src/utils/fetcher.ts";
+import fetchPdf from "../src/provider/pdf/fetch.ts";
+import fetchLuogu from "../src/provider/luogu/fetch.ts";
 import { openProblem } from "../src/utils/noteFile.ts";
 
 describe("canFetch matrix", () => {
@@ -35,28 +35,13 @@ describe("canFetch matrix", () => {
     });
     test("pdf claims local (non-URL) sources", () => {
         for (const s of ["sample.pdf", "/tmp/doc.pdf", "notes.txt", "P4001"]) {
-            assert.ok(parsePDF.canFetch(s), `local file should be claimed: ${s}`);
+            assert.ok(fetchPdf.canFetch(s), `local file should be claimed: ${s}`);
         }
     });
     test("pdf rejects URLs", () => {
         for (const u of ["https://www.luogu.com.cn/problem/P4001", "http://a.com/b"]) {
-            assert.ok(!parsePDF.canFetch(u), `url should not be claimed: ${u}`);
+            assert.ok(!fetchPdf.canFetch(u), `url should not be claimed: ${u}`);
         }
-    });
-});
-
-describe("resolution", () => {
-    test("autodetection follows registry order (luogu first)", () => {
-        assert.equal(resolveFetcher("P4001"), fetchLuogu);
-        assert.equal(resolveFetcher("https://www.luogu.com.cn/problem/P1"), fetchLuogu);
-        assert.equal(resolveFetcher("/tmp/doc.pdf"), parsePDF);
-    });
-    test("explicit type wins over detection", () => {
-        assert.equal(resolveFetcher("P4001", "pdf"), parsePDF);
-        assert.equal(resolveFetcher("/tmp/doc.pdf", "luogu"), fetchLuogu);
-    });
-    test("unknown explicit type is rejected", () => {
-        assert.throws(() => resolveFetcher("x", "epub"), /Unsupported type: epub/);
     });
 });
 
@@ -149,7 +134,7 @@ describe("conversion (live network)", () => {
     test("pdf converts a real PDF", async () => {
         const pdf = "/usr/share/cups/data/default-testpage.pdf";
         assert.ok(fs.existsSync(pdf), "fixture PDF missing");
-        const d = await parsePDF.convert(pdf);
+        const d = await fetchPdf.convert(pdf);
         assert.ok(d.title.length > 0);
         assert.match(d.description, /## Original PDF/);
         assert.deepEqual(d.sourceFiles, [pdf]);
@@ -157,10 +142,11 @@ describe("conversion (live network)", () => {
 });
 
 describe("end to end", () => {
-    test("fetchProblem saves a problem and proxy reads it back", { timeout: 30_000 }, async () => {
+    test("a converted draft saves a problem and the proxy reads it back", { timeout: 30_000 }, async () => {
         const root = fs.mkdtempSync(path.join(os.tmpdir(), "mylearn-test-"));
         try {
-            const p = await fetchProblem(root, "P4001", "graph");
+            const draft = await fetchLuogu.convert("P4001");
+            const p = importDraft(root, "graph", draft);
             assert.match(p.title, /^P4001/);
             assert.equal(p.category, "graph");
             assert.deepEqual(p.solutions, []);

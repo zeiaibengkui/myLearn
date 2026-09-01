@@ -6,9 +6,9 @@
 
 import path from "node:path";
 import { program } from "../../utils/program.ts";
-import { fetchProblem } from "../../fetch/index.ts";
-import { openProblem } from "../../utils/noteFile.ts";
+import { importDraft } from "../../utils/fetcher.ts";
 import { findProblemByPid, submitSolution } from "./maintain.ts";
+import fetchLuogu from "./fetch.ts";
 
 const luogu = program
     .command("luogu")
@@ -20,11 +20,11 @@ luogu
     .argument("<source>", "pid like P4001, or a Luogu problem URL")
     .option("-c, --category <category>", "target category", "luogu")
     .action(async (source: string, options: { category: string }) => {
-        const problem = await fetchProblem(
+        const draft = await fetchLuogu.convert(source);
+        const problem = importDraft(
             globalThis.projectRoot,
-            source,
             options.category,
-            "luogu"
+            draft
         );
         console.log(`Saved "${problem.title}" → content/${options.category}/${problem.title}/`);
     });

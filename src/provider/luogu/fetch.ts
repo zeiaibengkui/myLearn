@@ -9,7 +9,7 @@
 // NOTE: with no cookies/headers, Luogu may serve an anti-bot challenge page;
 // then there is no payload and loadContext throws.
 
-import type { Draft, Fetcher } from "./types.ts";
+import type { Draft, Fetcher } from "../../utils/fetcher.ts";
 
 const problemBase = "https://www.luogu.com.cn/problem/";
 const isUrl = /^https?:\/\//i;
