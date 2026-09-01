@@ -5,16 +5,22 @@ type RecursiveRecord = {
 };
 const tree = {
     content: {
-        cato1: { "readme.md": "This is cato1" },
-    } as RecursiveRecord,
+        cato1: {
+            "readme.md": "This is cato1",
+            "Problem 1": {
+                "Problem 1.md": "This is problem 1",
+                "Solution 1.md": "This is solution 1",
+            },
+        },
+    },
     "readme.md": "# myLearn new project",
-    "config.json": "{}",
     ".mylearn": {
-        cache: {} as any,
+        "config.json": "{}",
+        index: {} as RecursiveRecord,
     },
 };
 
-export type ProjectTree = typeof tree;
+export type ProjectTree = typeof tree | RecursiveRecord;
 
 function genPath(tree: ProjectTree, root: string) {
     for (const [key, value] of Object.entries(tree)) {
