@@ -34,7 +34,7 @@ myLearn init <dir>                          # write a project template tree
 myLearn luogu fetch <source> [-c category]  # import a Luogu problem (pid or URL)
 myLearn luogu submit <sol.cpp> -p <problem> # validate a solution, archive on success
 myLearn pdf import <file> -c category       # import a local PDF as a note
-myLearn ai "<prompt>" -p <problem>          # hand the note bundle to the codex CLI
+myLearn ai "<prompt>" [-p <problem>]        # hand the prompt (plus note, with -p) to codex
 myLearn maintain watch                      # diff content/ against the index snapshot (one-shot)
 myLearn maintain luogu -p <problem>         # revalidate the solution files stored in a note
 myLearn daemon                              # watcher that keeps the index snapshot fresh
@@ -64,10 +64,10 @@ pnpx tsx /path/to/myLearn/index.ts daemon                             # keep the
 
 ### AI
 
-`ai "<prompt>" -p <problem>` assembles the bundle (task + problem statement + saved
-solutions) and hands it to the `codex` CLI as its initial prompt — stdio inherited, exit
-code propagated (no API call). The bundle mentions `docs/SKILL.md` so codex drives the
-knowledge base with the CLI instead of guessing.
+`ai "<prompt>" [-p <problem>]` hands the prompt to the `codex` CLI as its initial prompt —
+stdio inherited, exit code propagated (no API call). With `-p`, the bundle also adds the
+note (task + problem statement + saved solutions). The message always mentions
+`docs/SKILL.md` so codex drives the knowledge base with the CLI instead of guessing.
 
 `docs/SKILL.md` holds the agent-facing workflow and command reference, in skill format —
 lift it into `.claude/skills/` if you want Claude Code to autoload it. Tip for spawning
