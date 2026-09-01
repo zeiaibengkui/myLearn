@@ -16,7 +16,8 @@ against the note's samples before it is archived.
 │   └── <category>/
 │       └── <title>/
 │           ├── problem.md    # frontmatter: title, category; body = statement + samples
-│           ├── <solution>.md # one per archived solution
+│           ├── <solution>.md # one per archived solution (written by luogu submit)
+│           ├── Explanation.md # optional: the agent-written explanation (idea, complexity)
 │           └── *.cpp         # copied source files
 └── readme.md
 ```
@@ -45,7 +46,12 @@ There is no separate server or API — the commands below are the whole surface.
    `### 样例` case on stdin, compares normalized stdout. All cases pass →
    archives (a `<solution>.md` + the .cpp copy); otherwise exit 1, nothing saved.
 
-5. **Revalidate / keep fresh** —
+5. **Explain** — after the submit passes, also write `Explanation.md` into
+   the note dir with your own file tools: the idea, the key observations, the
+   complexity, and what the problem teaches. The archived `<solution>.md`
+   carries only the code — the explanation is yours, the CLI leaves it alone.
+
+6. **Revalidate / keep fresh** —
    - `maintain luogu -p <note>` re-runs every saved .cpp in a note
    - `maintain watch` one-shot diff of `content/` vs `.mylearn/index/latest.json`
    - `daemon` the long-running watcher (Ctrl-C stops)
