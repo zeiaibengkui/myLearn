@@ -34,7 +34,7 @@ myLearn init <dir>                          # write a project template tree
 myLearn luogu fetch <source> [-c category]  # import a Luogu problem (pid or URL)
 myLearn luogu submit <sol.cpp> -p <problem> # validate a solution, archive on success
 myLearn pdf import <file> -c category       # import a local PDF as a note
-myLearn ai "<prompt>" -p <problem>          # print a paste-ready prompt bundle
+myLearn ai "<prompt>" -p <problem>          # hand the note bundle to the codex CLI
 myLearn maintain watch                      # diff content/ against the index snapshot (one-shot)
 myLearn maintain luogu -p <problem>         # revalidate the solution files stored in a note
 myLearn daemon                              # watcher that keeps the index snapshot fresh
@@ -64,11 +64,12 @@ pnpx tsx /path/to/myLearn/index.ts daemon                             # keep the
 
 ### AI
 
-`ai "<prompt>" -p <problem>` prints a paste-ready bundle (task + problem statement +
-saved solutions) to paste into any AI chat — no API call.
+`ai "<prompt>" -p <problem>` assembles the bundle (task + problem statement + saved
+solutions) and hands it to the `codex` CLI as its initial prompt — stdio inherited, exit
+code propagated (no API call). The bundle mentions `docs/SKILL.md` so codex drives the
+knowledge base with the CLI instead of guessing.
 
-Agents that should *drive* the knowledge base (fetch, submit, maintain) use the CLI
-directly. The workflow and command reference live in `docs/SKILL.md`, in skill format —
+`docs/SKILL.md` holds the agent-facing workflow and command reference, in skill format —
 lift it into `.claude/skills/` if you want Claude Code to autoload it. Tip for spawning
 from outside a project: pin it with `MYLEARN_PROJECT=/path/to/initialized-project`, since
 the CLI refuses to start without `.mylearn/config.json` in its CWD.

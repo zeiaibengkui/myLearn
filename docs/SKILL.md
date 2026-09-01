@@ -60,7 +60,7 @@ There is no separate server or API — the commands below are the whole surface.
 | `pdf import <file> -c <category>` | import a local PDF as a note |
 | `maintain watch` | diff content/ vs the index snapshot (one-shot) |
 | `maintain luogu -p <problem>` | re-validate the C++ sources saved in a note |
-| `ai "<prompt>" -p <problem>` | print a paste-ready prompt bundle (no LLM call) |
+| `ai "<prompt>" -p <problem>` | hand a note bundle to the codex CLI (with a pointer to this doc) |
 | `daemon` | keep the index snapshot fresh while running |
 
 Types of arguments: `-p, --problem <spec>` works anywhere in the command line
