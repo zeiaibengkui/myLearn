@@ -81,6 +81,9 @@ knowledge base so the server works no matter where the client launches from.
 The server exposes `list_problems`, `read_problem` and `submit_solution` (validate
 against the note's samples, archive on success — same engine as `luogu submit`), so an
 agent can browse the problemset and check in solutions without leaving its session.
+The handshake also carries server *instructions*: the workflow (browse with
+`list_problems`/`read_problem`, write the solution.cpp with your own file tools, then
+`submit_solution` its absolute path — the MCP tools never edit note files themselves).
 
 ## Project layout
 

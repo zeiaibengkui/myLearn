@@ -206,6 +206,16 @@ describe("MCP server", () => {
         await client.close();
     });
 
+    test("advertises instructions describing the workflow", async () => {
+        const client = await clientForServer();
+        const instructions = client.getInstructions();
+        assert.ok(instructions, "instructions delivered in the initialize handshake");
+        assert.match(instructions, /content\/<category>\/<title>\//);
+        assert.match(instructions, /own file tools/);
+        assert.match(instructions, /write the C\+\+ source file to disk/);
+        await client.close();
+    });
+
     test("read_problem reads a note from the configured project", async () => {
         const root = tmpRoot();
         const prevRoot = globalThis.projectRoot;

@@ -29,7 +29,18 @@ function failResult(text: string) {
 }
 
 export function createServer(): McpServer {
-    const server = new McpServer({ name: "myLearn", version: "0.9.0" });
+    const server = new McpServer(
+        { name: "myLearn", version: "0.9.0" },
+        {
+            // Delivered to the MCP client in the initialize handshake (the
+            // client's `getInstructions()`); this is the doc agents see.
+            instructions: [
+                "myLearn is a personal competitive-programming knowledge base: notes are markdown trees under content/<category>/<title>/ (problem.md = statement + samples, <title>.md = saved solutions with a copied source file).",
+                "Workflow: list_problems to browse; read_problem with a note id (a path, or a pattern matching exactly one note) to read statement, samples and saved solutions.",
+                "To check in a solution: write the C++ source file to disk with your own file tools (the MCP tools never edit files), then submit_solution with its absolute path — it compiles with g++, runs every sample, and archives the solution only when all cases pass.",
+            ].join(" "),
+        }
+    );
 
     server.registerTool(
         "list_problems",
