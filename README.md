@@ -69,9 +69,14 @@ pnpx tsx /path/to/myLearn/index.ts daemon                             # keep the
 log output goes to stderr. Register it as a server in your agent:
 
 ```bash
-# Claude Code: the command runs from inside an initialized project
-claude mcp add mylearn -- pnpx tsx /path/to/myLearn/index.ts ai serve
+# Claude Code (run from any directory — the server is pinned to a project)
+claude mcp add mylearn -e MYLEARN_PROJECT=/path/to/initialized-project \
+  -- pnpx tsx /path/to/myLearn/index.ts ai serve
 ```
+
+MCP clients spawn `ai serve` with *their own* CWD, and the CLI refuses to start
+unless it finds `.mylearn/config.json` — the `MYLEARN_PROJECT` env var pins the
+knowledge base so the server works no matter where the client launches from.
 
 The server exposes `list_problems`, `read_problem` and `submit_solution` (validate
 against the note's samples, archive on success — same engine as `luogu submit`), so an

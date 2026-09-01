@@ -6,12 +6,18 @@ declare global {
     };
 }
 
-globalThis.projectRoot = process.cwd();
-
-// test if there's a .mylearn/config.json file in the project root
 import fs from "node:fs";
 import path from "node:path";
 
+// The CLI normally requires the CWD to be an initialized project. But MCP
+// clients spawn `ai serve` with the *client's* CWD (seldom a project), so
+// MYLEARN_PROJECT pins the project explicitly for that case. Unset → CWD.
+const root = process.env.MYLEARN_PROJECT
+    ? path.resolve(process.env.MYLEARN_PROJECT)
+    : process.cwd();
+globalThis.projectRoot = root;
+
+// test if there's a .mylearn/config.json file in the project root
 const configPath = path.join(globalThis.projectRoot, ".mylearn", "config.json");
 if (fs.existsSync(configPath)) {
     const configContent = fs.readFileSync(configPath, "utf-8");
