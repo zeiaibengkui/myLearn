@@ -9,9 +9,9 @@ declare global {
 import fs from "node:fs";
 import path from "node:path";
 
-// The CLI normally requires the CWD to be an initialized project. But MCP
-// clients spawn `ai serve` with the *client's* CWD (seldom a project), so
-// MYLEARN_PROJECT pins the project explicitly for that case. Unset → CWD.
+// The CLI normally requires the CWD to be an initialized project. But scripts
+// and agents often spawn it with a different CWD, so MYLEARN_PROJECT pins the
+// project explicitly for that case. Unset → CWD.
 const root = process.env.MYLEARN_PROJECT
     ? path.resolve(process.env.MYLEARN_PROJECT)
     : process.cwd();

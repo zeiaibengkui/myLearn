@@ -1,18 +1,14 @@
-// AI module tests: note resolution (the -p contract), paste-prompt assembly
-// and the MCP server (over InMemoryTransport, fully offline).
+// AI module tests: note resolution (the -p contract) and paste-prompt assembly.
 //
-// Filter: pnpm test -- --test-name-pattern "resolveNote|buildPrompt|server"
+// Filter: pnpm test -- --test-name-pattern "resolveNote|buildPrompt"
 
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { listProblems, openNote, resolveNote } from "../src/ai/problems.ts";
 import { buildPrompt } from "../src/provider/ai/prompt.ts";
-import { createServer } from "../src/provider/ai/server.ts";
 import type { Problem } from "../src/utils/problem.ts";
 
 function tmpRoot(): string {
@@ -184,78 +180,3 @@ describe("buildPrompt", () => {
     });
 });
 
-describe("MCP server", () => {
-    async function clientForServer() {
-        const server = createServer();
-        const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
-        const client = new Client({ name: "test", version: "0.0.0" });
-        await Promise.all([
-            client.connect(clientTransport),
-            server.connect(serverTransport),
-        ]);
-        return client;
-    }
-
-    test("advertises list_problems, read_problem, submit_solution", async () => {
-        const client = await clientForServer();
-        const { tools } = await client.listTools();
-        assert.deepEqual(
-            tools.map((t) => t.name),
-            ["list_problems", "read_problem", "submit_solution"]
-        );
-        await client.close();
-    });
-
-    test("advertises instructions describing the workflow", async () => {
-        const client = await clientForServer();
-        const instructions = client.getInstructions();
-        assert.ok(instructions, "instructions delivered in the initialize handshake");
-        assert.match(instructions, /content\/<category>\/<title>\//);
-        assert.match(instructions, /own file tools/);
-        assert.match(instructions, /write the C\+\+ source file to disk/);
-        await client.close();
-    });
-
-    test("read_problem reads a note from the configured project", async () => {
-        const root = tmpRoot();
-        const prevRoot = globalThis.projectRoot;
-        try {
-            const dir = mkNote(root, "graph", "P4001 demo", "P4001 演示");
-            fs.writeFileSync(path.join(dir, "Solution A.md"), "# Solution A\n");
-            globalThis.projectRoot = root;
-            const client = await clientForServer();
-            const res = await client.callTool({ name: "read_problem", arguments: { problem: "p4001" } });
-            const text = (res.content as { type: "text"; text: string }[])
-                .map((c) => c.text)
-                .join("\n");
-            assert.match(text, /^# P4001 演示/);
-            assert.match(text, /- category: graph/);
-            assert.match(text, /Description of P4001 demo\./);
-            assert.match(text, /## Solutions/);
-            assert.match(text, /\* Solution A/);
-            await client.close();
-        } finally {
-            globalThis.projectRoot = prevRoot;
-            fs.rmSync(root, { recursive: true, force: true });
-        }
-    });
-
-    test("read_problem returns an error result for an unknown note", async () => {
-        const root = tmpRoot();
-        const prevRoot = globalThis.projectRoot;
-        try {
-            globalThis.projectRoot = root;
-            const client = await clientForServer();
-            const res = await client.callTool({ name: "read_problem", arguments: { problem: "Q9999" } });
-            assert.equal(res.isError, true);
-            assert.match(
-                (res.content as { type: "text"; text: string }[])[0].text,
-                /No note matches/
-            );
-            await client.close();
-        } finally {
-            globalThis.projectRoot = prevRoot;
-            fs.rmSync(root, { recursive: true, force: true });
-        }
-    });
-});

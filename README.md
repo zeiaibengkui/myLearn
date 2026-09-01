@@ -3,8 +3,8 @@
 A Node.js CLI for managing a personal competitive-programming problem knowledge base.
 Problems and solutions live on disk as markdown files under a category-organized tree;
 problems are imported from Luogu (pid or URL) or local PDFs, and C++ solutions can be
-validated automatically against the problem's sample cases. It also ships an MCP server
-so claude / codex can read and submit to your problemset directly.
+validated automatically against the problem's sample cases. Agents can drive the whole
+CLI (fetch, submit, maintain) following the workflow in `docs/SKILL.md`.
 
 ## Requirements
 
@@ -35,7 +35,6 @@ myLearn luogu fetch <source> [-c category]  # import a Luogu problem (pid or URL
 myLearn luogu submit <sol.cpp> -p <problem> # validate a solution, archive on success
 myLearn pdf import <file> -c category       # import a local PDF as a note
 myLearn ai "<prompt>" -p <problem>          # print a paste-ready prompt bundle
-myLearn ai serve                            # run the myLearn MCP server over stdio
 myLearn maintain watch                      # diff content/ against the index snapshot (one-shot)
 myLearn maintain luogu -p <problem>         # revalidate the solution files stored in a note
 myLearn daemon                              # watcher that keeps the index snapshot fresh
@@ -63,27 +62,16 @@ pnpx tsx /path/to/myLearn/index.ts ai "Solve this problem." -p P4001  # paste-re
 pnpx tsx /path/to/myLearn/index.ts daemon                             # keep the index snapshot fresh (Ctrl-C stops)
 ```
 
-### AI / MCP
+### AI
 
-`ai serve` speaks JSON-RPC over stdio (MCP) — stdout carries only the protocol, so
-log output goes to stderr. Register it as a server in your agent:
+`ai "<prompt>" -p <problem>` prints a paste-ready bundle (task + problem statement +
+saved solutions) to paste into any AI chat — no API call.
 
-```bash
-# Claude Code (run from any directory — the server is pinned to a project)
-claude mcp add mylearn -e MYLEARN_PROJECT=/path/to/initialized-project \
-  -- pnpx tsx /path/to/myLearn/index.ts ai serve
-```
-
-MCP clients spawn `ai serve` with *their own* CWD, and the CLI refuses to start
-unless it finds `.mylearn/config.json` — the `MYLEARN_PROJECT` env var pins the
-knowledge base so the server works no matter where the client launches from.
-
-The server exposes `list_problems`, `read_problem` and `submit_solution` (validate
-against the note's samples, archive on success — same engine as `luogu submit`), so an
-agent can browse the problemset and check in solutions without leaving its session.
-The handshake also carries server *instructions*: the workflow (browse with
-`list_problems`/`read_problem`, write the solution.cpp with your own file tools, then
-`submit_solution` its absolute path — the MCP tools never edit note files themselves).
+Agents that should *drive* the knowledge base (fetch, submit, maintain) use the CLI
+directly. The workflow and command reference live in `docs/SKILL.md`, in skill format —
+lift it into `.claude/skills/` if you want Claude Code to autoload it. Tip for spawning
+from outside a project: pin it with `MYLEARN_PROJECT=/path/to/initialized-project`, since
+the CLI refuses to start without `.mylearn/config.json` in its CWD.
 
 ## Project layout
 
@@ -126,10 +114,8 @@ The handshake also carries server *instructions*: the workflow (browse with
   exactly one note (0 → error, >1 → lists the matches). Every note-taking verb
   (`ai`, `luogu submit`, `maintain luogu`) uses it, so the note id needn't be a Luogu pid.
 - **AI provider** — `src/provider/ai/` is the domain module: `prompt.ts` builds the
-  paste-ready bundle for `ai "<prompt>" -p`, and `server.ts` is the MCP server
-  (official MCP SDK, `McpServer` + `StdioServerTransport`) whose base tools
-  (`list_problems`, `read_problem`) sit on `src/ai/` while `submit_solution` delegates
-  to the luogu provider's `submitSolution`.
+  paste-ready bundle for `ai "<prompt>" -p`; agents drive the CLI directly (see
+  `docs/SKILL.md`).
 - **Maintain** — `src/maintain/watch.ts` compares `content/` with
   `.mylearn/index/latest.json` (mtime first; a file is re-hashed only when its mtime
   changed) and reports added/changed/removed; `provider/luogu/maintain.ts` parses the

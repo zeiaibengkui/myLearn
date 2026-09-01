@@ -21,12 +21,11 @@ against the note's samples before it is archived.
 └── readme.md
 ```
 
-## The CLI is authoritative
+## The CLI is the contract
 
 All knowledge-base operations go through the CLI: `pnpx tsx index.ts <command>`
 run **from inside an initialized project** (the dir with `.mylearn/config.json`).
-Everything the MCP server exposes mirrors it; if a tool does not exist, fall
-back to the CLI.
+There is no separate server or API — the commands below are the whole surface.
 
 ## Workflow
 
@@ -39,7 +38,7 @@ back to the CLI.
    There is no separate "open" step — the files *are* the knowledge base.
 
 3. **Solve** — write your solution to disk with your own file tools
-   (`/tmp/sol.cpp` or next to the note). The CLI/MCP tools never edit files.
+   (`/tmp/sol.cpp` or next to the note). No CLI verb edits files.
 
 4. **Submit** — validate + archive in one step:
    `luogu submit sol.cpp -p P4001` — compiles with `g++`, runs every
@@ -62,7 +61,6 @@ back to the CLI.
 | `maintain watch` | diff content/ vs the index snapshot (one-shot) |
 | `maintain luogu -p <problem>` | re-validate the C++ sources saved in a note |
 | `ai "<prompt>" -p <problem>` | print a paste-ready prompt bundle (no LLM call) |
-| `ai serve` | MCP server over stdio (inspect/submit from an agent) |
 | `daemon` | keep the index snapshot fresh while running |
 
 Types of arguments: `-p, --problem <spec>` works anywhere in the command line
@@ -74,12 +72,10 @@ them).
 ## Gotchas
 
 - The CLI refuses to start without `.mylearn/config.json` in the CWD. When
-  spawning from elsewhere (`ai serve` via an MCP client), pin it:
+  spawning from a different CWD (scripts, agents), pin it:
   `MYLEARN_PROJECT=/path/to/project`.
 - `g++` (luogu submit/maintain) and `markitdown` (pdf import) are optional
   system dependencies — the verb that needs them fails with a clear error.
-- `ai serve` owns stdout as its JSON-RPC channel; all logs go to stderr — never
-  run anything that prints to stdout against it.
 - Web-sourced titles are sanitized; path segments are validated on save.
 - Verifying your own work: `pnpm exec tsc --noEmit` and `pnpm test` (from the
   myLearn repo, not the project).
