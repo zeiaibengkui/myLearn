@@ -24,3 +24,12 @@ export function buildPrompt(
         ...(solutions ? ["## Existing solutions", "", solutions, ""] : []),
     ].join("\n");
 }
+
+/**
+ * The client `ai` spawns, from config `ai-client-prefix` — space-separated
+ * (defaults to "codex"; the prompt is appended as the last arg, interactive
+ * mode). e.g. "codex --yolo", "claude -p".
+ */
+export function clientCommand(prefix: string | undefined): string {
+    return prefix?.trim() ? prefix.trim() : "codex";
+}

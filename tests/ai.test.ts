@@ -8,7 +8,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { listProblems, openNote, resolveNote } from "../src/ai/problems.ts";
-import { buildPrompt } from "../src/provider/ai/prompt.ts";
+import { buildPrompt, clientCommand } from "../src/provider/ai/prompt.ts";
 import type { Problem } from "../src/utils/problem.ts";
 
 function tmpRoot(): string {
@@ -177,6 +177,15 @@ describe("buildPrompt", () => {
         const prompt = buildPrompt(fakeProblem(), "hi");
         assert.doesNotMatch(prompt, /- note: /);
         assert.doesNotMatch(prompt, /Existing solutions/);
+    });
+});
+
+describe("clientCommand", () => {
+    test("defaults to codex and honors the config prefix", () => {
+        assert.equal(clientCommand(undefined), "codex");
+        assert.equal(clientCommand("   "), "codex");
+        assert.equal(clientCommand("codex --yolo"), "codex --yolo");
+        assert.equal(clientCommand("claude -p"), "claude -p");
     });
 });
 

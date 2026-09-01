@@ -66,7 +66,7 @@ There is no separate server or API — the commands below are the whole surface.
 | `pdf import <file> -c <category>` | import a local PDF as a note |
 | `maintain watch` | diff content/ vs the index snapshot (one-shot) |
 | `maintain luogu -p <problem>` | re-validate the C++ sources saved in a note |
-| `ai "<prompt>" [-p <problem>]` | hand the prompt to the codex CLI (with `-p`, the note bundle + a pointer to this doc) |
+| `ai "<prompt>" [-p <problem>]` | hand the prompt to the client CLI (with `-p`, the note bundle + a pointer to this doc) |
 | `daemon` | keep the index snapshot fresh while running |
 
 Types of arguments: `-p, --problem <spec>` works anywhere in the command line
@@ -80,6 +80,9 @@ them).
 - The CLI refuses to start without `.mylearn/config.json` in the CWD. When
   spawning from a different CWD (scripts, agents), pin it:
   `MYLEARN_PROJECT=/path/to/project`.
+- The client `ai` spawns is configurable via `ai-client-prefix` in
+  `.mylearn/config.json` (space-separated; default `codex`; the prompt is the
+  last argument — e.g. `codex --yolo`).
 - `g++` (luogu submit/maintain) and `markitdown` (pdf import) are optional
   system dependencies — the verb that needs them fails with a clear error.
 - Web-sourced titles are sanitized; path segments are validated on save.

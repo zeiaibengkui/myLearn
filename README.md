@@ -64,10 +64,13 @@ pnpx tsx /path/to/myLearn/index.ts daemon                             # keep the
 
 ### AI
 
-`ai "<prompt>" [-p <problem>]` hands the prompt to the `codex` CLI as its initial prompt —
+`ai "<prompt>" [-p <problem>]` hands the prompt to the client CLI as its initial prompt —
 stdio inherited, exit code propagated (no API call). With `-p`, the bundle also adds the
 note (task + problem statement + saved solutions). The message always mentions
-`docs/SKILL.md` so codex drives the knowledge base with the CLI instead of guessing.
+`docs/SKILL.md` so the agent drives the knowledge base with the CLI instead of guessing.
+The client is configurable: `ai-client-prefix` in `.mylearn/config.json`
+(space-separated, default `codex`, the prompt is appended as the last arg — e.g.
+`codex --yolo` or `claude -p`).
 
 `docs/SKILL.md` holds the agent-facing workflow and command reference, in skill format —
 lift it into `.claude/skills/` if you want Claude Code to autoload it. Tip for spawning

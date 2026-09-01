@@ -8,7 +8,7 @@ import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { program } from "../../utils/program.ts";
 import { openNote, resolveNote } from "../../ai/problems.ts";
-import { buildPrompt } from "./prompt.ts";
+import { buildPrompt, clientCommand } from "./prompt.ts";
 
 const ai = program
     .command("ai")
@@ -37,9 +37,14 @@ ai
                   path.relative(globalThis.projectRoot, resolveNote(globalThis.projectRoot, spec)) || "."
               )
             : task;
-        const child = spawn("codex", [lead + bundle], { stdio: "inherit" });
+        // Client from config `ai-client-prefix` (e.g. "codex --yolo"), default
+        // "codex"; the message is the last arg. spawn (no shell), stdio inherited.
+        const [cmd, ...args] = clientCommand(
+            globalThis.projectConfig?.["ai-client-prefix"]
+        ).split(/\s+/);
+        const child = spawn(cmd, [...args, lead + bundle], { stdio: "inherit" });
         child.on("error", (err) => {
-            console.error(`failed to start codex: ${err.message}`);
+            console.error(`failed to start ${cmd}: ${err.message}`);
             process.exit(1);
         });
         child.on("exit", (code) => {
