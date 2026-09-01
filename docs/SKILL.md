@@ -24,9 +24,21 @@ against the note's samples before it is archived.
 
 ## The CLI is the contract
 
-All knowledge-base operations go through the CLI: `pnpx tsx index.ts <command>`
-run **from inside an initialized project** (the dir with `.mylearn/config.json`).
-There is no separate server or API — the commands below are the whole surface.
+All knowledge-base operations go through ONE invocation — there is no `luogu`
+or `maintain` binary on PATH, so never paste a bare verb. `index.ts` lives in
+the myLearn **repo**, not the project:
+
+```bash
+# from inside an initialized project (has .mylearn/config.json):
+pnpx tsx /path/to/myLearn/index.ts luogu submit sol.cpp -p P4001
+
+# from anywhere else — pin the project:
+MYLEARN_PROJECT=/path/to/project pnpx tsx /path/to/myLearn/index.ts luogu fetch P4001
+```
+
+The reference below lists verbs as shorthands (`luogu submit ...`) of that
+invocation. The CLI refuses to start unless it finds `.mylearn/config.json`
+(in the CWD, or at `MYLEARN_PROJECT`).
 
 ## Workflow
 
@@ -77,6 +89,9 @@ them).
 
 ## Gotchas
 
+- `luogu submit <sol.cpp>` resolves the solution path against the process
+  CWD, not the project root — pass an absolute path when running from
+  elsewhere (`-p`, on the other hand, also tries project/content-relative).
 - The CLI refuses to start without `.mylearn/config.json` in the CWD. When
   spawning from a different CWD (scripts, agents), pin it:
   `MYLEARN_PROJECT=/path/to/project`.
