@@ -150,4 +150,5 @@ pnpm test                       # node:test via tsx; luogu fetch suites hit the 
 ```
 
 Tests live in `tests/`, following the modules they cover (`fetch.test.ts`,
-`maintain.test.ts`).
+`maintain.test.ts`). Agent-facing workflow instructions, ready to lift into a
+Claude Code skill: `docs/SKILL.md`.
