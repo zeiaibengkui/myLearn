@@ -27,7 +27,7 @@ luogu
             options.category,
             draft
         );
-        console.log(`Saved "${problem.title}" → content/${options.category}/${problem.title}/`);
+        console.log(`Saved "${problem.title}" → problems/${options.category}/${problem.title}/`);
     });
 
 luogu
@@ -58,6 +58,6 @@ luogu
             return;
         }
         console.log(
-            `All ${result.cases.length} case(s) passed — archived solution under content/ for "${result.title}".`
+            `All ${result.cases.length} case(s) passed — archived solution under problems/ for "${result.title}".`
         );
     });

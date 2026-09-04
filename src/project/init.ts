@@ -4,7 +4,7 @@ type RecursiveRecord = {
     [key: string]: string | RecursiveRecord;
 };
 const tree = {
-    content: {
+    problems: {
         cato1: {
             "readme.md": "This is cato1",
             "Problem 1": {
@@ -12,6 +12,8 @@ const tree = {
                 "Solution 1.md": "This is solution 1",
             },
         },
+        // freeform notes without a problem statement; can be nested
+        notes: {} as RecursiveRecord,
     },
     "readme.md": "# myLearn new project",
     ".mylearn": {

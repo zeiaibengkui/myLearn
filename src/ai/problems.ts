@@ -4,14 +4,14 @@
 // problemset, open a note.
 //
 // The -p contract is: an explicit path (absolute, or relative to the CWD or
-// to `content/`) points at a note dir; anything else is a pattern that must
+// to `problems/`) points at a note dir; anything else is a pattern that must
 // match exactly one note (case-insensitive substring on the title dir name).
 
 import fs from "node:fs";
 import path from "node:path";
 import type { Problem } from "../utils/problem.ts";
 import { openProblem } from "../utils/noteFile.ts";
-import { problemMdPath, readProblemMd } from "../utils/persist.ts";
+import { problemsDir, problemMdPath, readProblemMd } from "../utils/persist.ts";
 
 export interface NoteInfo {
     /** note directory (absolute) */
@@ -20,17 +20,14 @@ export interface NoteInfo {
     title: string;
 }
 
-function contentDir(root: string): string {
-    return path.join(root, "content");
-}
-
-/** Every note in the problemset: content/<category>/<title dir>/problem.md */
+/** Every problem note: problems/<category>/<title dir>/problem.md.
+ *  `problems/notes/` (nested freeform notes) has no problem.md → skipped. */
 export function listProblems(root: string): NoteInfo[] {
-    const content = contentDir(root);
-    if (!fs.existsSync(content)) return [];
+    const base = problemsDir(root);
+    if (!fs.existsSync(base)) return [];
     const notes: NoteInfo[] = [];
-    for (const category of fs.readdirSync(content).sort()) {
-        const catDir = path.join(content, category);
+    for (const category of fs.readdirSync(base).sort()) {
+        const catDir = path.join(base, category);
         if (!fs.statSync(catDir).isDirectory()) continue;
         for (const entry of fs.readdirSync(catDir).sort()) {
             const dir = path.join(catDir, entry);
@@ -50,11 +47,11 @@ export function listProblems(root: string): NoteInfo[] {
 
 /** Note(dir) resolution: exact path first, then pattern with exactly one match. */
 export function resolveNote(root: string, spec: string): string {
-    // 1. path candidates: as given (cwd-relative), project-relative, content-relative
+    // 1. path candidates: as given (cwd-relative), project-relative, problems-relative
     for (const candidate of [
         path.resolve(spec),
         path.join(root, spec),
-        path.join(contentDir(root), spec),
+        path.join(problemsDir(root), spec),
     ]) {
         if (fs.existsSync(problemMdPath(candidate))) return candidate;
     }
@@ -65,7 +62,7 @@ export function resolveNote(root: string, spec: string): string {
     );
     if (matches.length === 1) return matches[0].dir;
     if (matches.length === 0) {
-        throw new Error(`No note matches "${spec}" in ${contentDir(root)} — pass a note path or a pattern.`);
+        throw new Error(`No note matches "${spec}" in ${problemsDir(root)} — pass a note path or a pattern.`);
     }
     throw new Error(
         `"${spec}" matches more than one note:\n  ${matches

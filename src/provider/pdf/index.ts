@@ -19,5 +19,5 @@ pdf
     .action(async (file: string, options: { category: string }) => {
         const draft = await fetchPdf.convert(path.resolve(file));
         const problem = importDraft(globalThis.projectRoot, options.category, draft);
-        console.log(`Saved "${problem.title}" → content/${options.category}/${problem.title}/`);
+        console.log(`Saved "${problem.title}" → problems/${options.category}/${problem.title}/`);
     });

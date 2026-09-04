@@ -1,6 +1,6 @@
 ---
 name: mylearn
-description: Manage the myLearn competitive-programming knowledge base — fetch problems (Luogu/PDF), read note files, write and submit C++ solutions (auto-validated against samples), and keep the index snapshot fresh. Use when the task involves the problemset, a luogu pid, a solution .cpp, or notes under content/.
+description: Manage the myLearn competitive-programming knowledge base — fetch problems (Luogu/PDF), read note files, write and submit C++ solutions (auto-validated against samples), and keep the index snapshot fresh. Use when the task involves the problemset, a luogu pid, a solution .cpp, or notes under problems/.
 ---
 
 # myLearn — knowledge-base workflow
@@ -12,7 +12,8 @@ against the note's samples before it is archived.
 ```
 <project>/
 ├── .mylearn/config.json      # project marker (required to run the CLI)
-├── content/
+├── problems/
+│   ├── notes/               # freeform notes without a problem (nestable)
 │   └── <category>/
 │       └── <title>/
 │           ├── problem.md    # frontmatter: title, category; body = statement + samples
@@ -46,7 +47,7 @@ invocation. The CLI refuses to start unless it finds `.mylearn/config.json`
    - Luogu: `luogu fetch P4001` or a URL, `-c <category>` (default `luogu`)
    - Local PDF: `pdf import notes.pdf -c course` (needs the `markitdown` CLI)
 
-2. **Read the note** — `content/luogu/P4001/problem.md` is plain markdown
+2. **Read the note** — `problems/luogu/P4001/problem.md` is plain markdown
    (statement, samples, saved solutions); or list notes via `maintain watch`.
    There is no separate "open" step — the files *are* the knowledge base.
 
@@ -65,7 +66,7 @@ invocation. The CLI refuses to start unless it finds `.mylearn/config.json`
 
 6. **Revalidate / keep fresh** —
    - `maintain luogu -p <note>` re-runs every saved .cpp in a note
-   - `maintain watch` one-shot diff of `content/` vs `.mylearn/index/latest.json`
+   - `maintain watch` one-shot diff of `problems/` vs `.mylearn/index/latest.json`
    - `daemon` the long-running watcher (Ctrl-C stops)
 
 ## Command reference
@@ -76,14 +77,14 @@ invocation. The CLI refuses to start unless it finds `.mylearn/config.json`
 | `luogu fetch <source> [-c <category>]` | import a Luogu problem (pid or URL), default category `luogu` |
 | `luogu submit <sol.cpp> -p <problem>` | validate against samples; archive on success |
 | `pdf import <file> -c <category>` | import a local PDF as a note |
-| `maintain watch` | diff content/ vs the index snapshot (one-shot) |
+| `maintain watch` | diff problems/ vs the index snapshot (one-shot) |
 | `maintain luogu -p <problem>` | re-validate the C++ sources saved in a note |
 | `ai "<prompt>" [-p <problem>]` | hand the prompt to the client CLI (with `-p`, the note bundle + a pointer to this doc) |
 | `daemon` | keep the index snapshot fresh while running |
 
 Types of arguments: `-p, --problem <spec>` works anywhere in the command line
 (`-p P5985 luogu submit sol.cpp` or `luogu submit sol.cpp -p P5985`). `spec` is
-either a path (absolute, CWD/project/content-relative) or a case-insensitive
+either a path (absolute, CWD/project/problems-relative) or a case-insensitive
 substring matching **exactly one** note title (0 matches → error, >1 → lists
 them).
 
@@ -91,7 +92,7 @@ them).
 
 - `luogu submit <sol.cpp>` resolves the solution path against the process
   CWD, not the project root — pass an absolute path when running from
-  elsewhere (`-p`, on the other hand, also tries project/content-relative).
+  elsewhere (`-p`, on the other hand, also tries project/problems-relative).
 - The CLI refuses to start without `.mylearn/config.json` in the CWD. When
   spawning from a different CWD (scripts, agents), pin it:
   `MYLEARN_PROJECT=/path/to/project`.

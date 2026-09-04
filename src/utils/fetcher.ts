@@ -18,7 +18,7 @@ export interface Fetcher {
     convert(source: string): Promise<Draft>;
 }
 
-/** Save a draft under content/<category>/<title>/ and return it as a live proxy. */
+/** Save a draft under problems/<category>/<title>/ and return it as a live proxy. */
 export function importDraft(root: string, category: string, draft: Draft): Problem {
     return openProblem(createProblem(root, category, draft));
 }

@@ -31,7 +31,7 @@ const hasGpp = (() => {
 
 // a minimal note with frontmatter + one sample (3 4 → 14)
 function writeNote(root: string): string {
-    const dir = path.join(root, "content", "cat", "P4001 demo");
+    const dir = path.join(root, "problems", "cat", "P4001 demo");
     fs.mkdirSync(dir, { recursive: true });
     const desc = [
         "## 样例",
@@ -70,7 +70,7 @@ function tmpRoot(): string {
 describe("watch snapshot", () => {
     test("first run adds, second run is stable, edits and removals are detected", () => {
         const root = tmpRoot();
-        const md = path.join(root, "content", "graph", "P4001 狼", "problem.md");
+        const md = path.join(root, "problems", "graph", "P4001 狼", "problem.md");
         fs.mkdirSync(path.dirname(md), { recursive: true });
         const stamp = (ms: number) => {
             const d = new Date(ms);
@@ -113,10 +113,10 @@ describe("watch snapshot", () => {
         }
     });
 
-    test("throws when content/ is missing", () => {
+    test("throws when problems/ is missing", () => {
         const root = tmpRoot();
         try {
-            assert.throws(() => watch(root), /No content directory/);
+            assert.throws(() => watch(root), /No problems directory/);
         } finally {
             fs.rmSync(root, { recursive: true, force: true });
         }

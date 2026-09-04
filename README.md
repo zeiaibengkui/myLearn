@@ -35,7 +35,7 @@ myLearn luogu fetch <source> [-c category]  # import a Luogu problem (pid or URL
 myLearn luogu submit <sol.cpp> -p <problem> # validate a solution, archive on success
 myLearn pdf import <file> -c category       # import a local PDF as a note
 myLearn ai "<prompt>" [-p <problem>]        # hand the prompt (plus note, with -p) to codex
-myLearn maintain watch                      # diff content/ against the index snapshot (one-shot)
+myLearn maintain watch                      # diff problems/ against the index snapshot (one-shot)
 myLearn maintain luogu -p <problem>         # revalidate the solution files stored in a note
 myLearn daemon                              # watcher that keeps the index snapshot fresh
 ```
@@ -44,7 +44,7 @@ Every command runs as `pnpx tsx index.ts <command>` — from the project root of
 knowledge base.
 
 `-p/--problem` selects a note in a provider-agnostic way: either a path (absolute,
-CWD/project/content-relative) or a pattern that matches exactly one note title. It can
+CWD/project/problems-relative) or a pattern that matches exactly one note title. It can
 go before or after the verb (`-p P5985 luogu submit sol.cpp` or `luogu submit sol.cpp -p P5985`).
 
 ### Example
@@ -52,7 +52,7 @@ go before or after the verb (`-p P5985 luogu submit sol.cpp` or `luogu submit so
 ```bash
 cd my-problems                     # an initialized project directory
 
-pnpx tsx /path/to/myLearn/index.ts luogu fetch P4001 -c luogu         # saves content/luogu/P4001 .../
+pnpx tsx /path/to/myLearn/index.ts luogu fetch P4001 -c luogu         # saves problems/luogu/P4001 .../
 pnpx tsx /path/to/myLearn/index.ts luogu submit solution.cpp -p P4001 # runs the samples, prints PASS/FAIL
                                                                       # all passed → archives the .cpp + a solution note
 pnpx tsx /path/to/myLearn/index.ts maintain luogu -p P4001            # re-runs the samples on the archived solution
@@ -85,7 +85,8 @@ the CLI refuses to start without `.mylearn/config.json` in its CWD.
 │   ├── config.json          # project config (loaded by the startup check)
 │   └── index/
 │       └── latest.json      # watcher snapshot: per-file mtime + sha256
-├── content/
+├── problems/
+│   ├── notes/              # freeform notes without a problem; can be nested
 │   └── <category>/
 │       └── <title>/
 │           ├── problem.md   # frontmatter: title, category; body: description (samples as ```text blocks)
@@ -114,13 +115,13 @@ the CLI refuses to start without `.mylearn/config.json` in its CWD.
   Luogu's fetcher parses the `lentille-context` JSON payload and validates every
   redirect against the Luogu host allowlist; PDF's shells out to `markitdown`.
 - **Note selection** — `src/ai/problems.ts` resolves `-p/--problem`: path candidates
-  first (absolute / CWD / project / content-relative), then a pattern that must match
+  first (absolute / CWD / project / problems-relative), then a pattern that must match
   exactly one note (0 → error, >1 → lists the matches). Every note-taking verb
   (`ai`, `luogu submit`, `maintain luogu`) uses it, so the note id needn't be a Luogu pid.
 - **AI provider** — `src/provider/ai/` is the domain module: `prompt.ts` builds the
   paste-ready bundle for `ai "<prompt>" -p`; agents drive the CLI directly (see
   `docs/SKILL.md`).
-- **Maintain** — `src/maintain/watch.ts` compares `content/` with
+- **Maintain** — `src/maintain/watch.ts` compares `problems/` with
   `.mylearn/index/latest.json` (mtime first; a file is re-hashed only when its mtime
   changed) and reports added/changed/removed; `provider/luogu/maintain.ts` parses the
   `### 样例` sections of a note description, compiles a C++ solution with `g++`
@@ -129,7 +130,7 @@ the CLI refuses to start without `.mylearn/config.json` in its CWD.
   long-running variant of the watch (one-shot diff at start, then debounced).
 
 All process invocation uses `execFile`/`spawn` (no shell) and path segments are
-sanitized, so web-sourced titles can't escape the `content/` tree.
+sanitized, so web-sourced titles can't escape the `problems/` tree.
 
 ## Development
 

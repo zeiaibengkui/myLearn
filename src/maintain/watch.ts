@@ -1,4 +1,4 @@
-// Watch the content tree for changes against .mylearn/index/latest.json.
+// Watch the problems tree for changes against .mylearn/index/latest.json.
 // Hash comparison is manual (a changed file is re-hashed from disk); mtime
 // comparison against the snapshot is automatic (files are only re-hashed
 // when the mtime differs), so an unchanged tree costs one stat per file.
@@ -8,6 +8,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
+import { problemsDir } from "../utils/persist.ts";
 
 export interface SnapshotFile {
     mtimeMs: number;
@@ -63,19 +64,19 @@ function fileHash(filePath: string): string {
     return crypto.createHash("sha256").update(fs.readFileSync(filePath)).digest("hex");
 }
 
-/** One-shot: compare content/ with the snapshot, persist the new snapshot,
+/** One-shot: compare problems/ with the snapshot, persist the new snapshot,
  *  and report what changed. Delegates rebuilding to the caller. */
 export function watch(root: string): NoteDiff {
-    const content = path.join(root, "content");
-    if (!fs.existsSync(content)) {
-        throw new Error(`No content directory: ${content}`);
+    const base = problemsDir(root);
+    if (!fs.existsSync(base)) {
+        throw new Error(`No problems directory: ${base}`);
     }
     const snapshot = loadSnapshot(root);
     const next: NoteSnapshot = { updatedAt: Date.now(), files: {} };
     const diff: NoteDiff = { added: [], changed: [], removed: [] };
 
-    for (const rel of walkFiles(content).sort()) {
-        const abs = path.join(content, rel);
+    for (const rel of walkFiles(base).sort()) {
+        const abs = path.join(base, rel);
         const stat = fs.statSync(abs);
         const record = snapshot.files[rel];
         if (!record) {
@@ -97,14 +98,14 @@ export function watch(root: string): NoteDiff {
     return diff;
 }
 
-/** Continuous: fs.watch content/ (debounced) and run watch() on each change.
+/** Continuous: fs.watch problems/ (debounced) and run watch() on each change.
  *  onChanges only fires when the diff is non-empty. Returns a stop() fn. */
 export function watchContinuous(
     root: string,
     onChanges: (diff: NoteDiff) => void,
     debounceMs = 500
 ): () => void {
-    const content = path.join(root, "content");
+    const base = problemsDir(root);
     let timer: ReturnType<typeof setTimeout> | undefined;
     const refresh = () => {
         const diff = watch(root);
@@ -112,7 +113,7 @@ export function watchContinuous(
             onChanges(diff);
         }
     };
-    const watcher = fs.watch(content, { recursive: true }, () => {
+    const watcher = fs.watch(base, { recursive: true }, () => {
         if (timer) clearTimeout(timer);
         timer = setTimeout(refresh, debounceMs);
     });

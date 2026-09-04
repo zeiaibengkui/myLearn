@@ -151,9 +151,9 @@ describe("end to end", () => {
             assert.equal(p.category, "graph");
             assert.deepEqual(p.solutions, []);
             assert.deepEqual(p.sourceFiles, []);
-            assert.ok(fs.existsSync(path.join(root, "content", "graph", p.title, "problem.md")));
+            assert.ok(fs.existsSync(path.join(root, "problems", "graph", p.title, "problem.md")));
             // reopen as a fresh proxy — the file-backed view must see the same data
-            const again = openProblem(path.join(root, "content", "graph", p.title));
+            const again = openProblem(path.join(root, "problems", "graph", p.title));
             assert.equal(again.title, p.title);
             assert.equal(again.category, "graph");
         } finally {

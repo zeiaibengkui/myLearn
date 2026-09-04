@@ -22,7 +22,7 @@ function mkNote(
     titleDir: string,
     title = titleDir
 ): string {
-    const dir = path.join(root, "content", category, titleDir);
+    const dir = path.join(root, "problems", category, titleDir);
     fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(
         path.join(dir, "problem.md"),
@@ -50,8 +50,11 @@ describe("listProblems", () => {
             mkNote(root, "a", "note b");
             mkNote(root, "a", "note a");
             // a dir with no problem.md and a stray file are not notes
-            fs.mkdirSync(path.join(root, "content", "a", "note c"));
-            fs.writeFileSync(path.join(root, "content", "frag.md"), "x");
+            fs.mkdirSync(path.join(root, "problems", "a", "note c"));
+            fs.writeFileSync(path.join(root, "problems", "frag.md"), "x");
+            // freeform notes under problems/notes/ (nested) are not problems
+            fs.mkdirSync(path.join(root, "problems", "notes", "nested"), { recursive: true });
+            fs.writeFileSync(path.join(root, "problems", "notes", "nested", "note.md"), "x");
             const notes = listProblems(root);
             assert.equal(notes.length, 3);
             assert.deepEqual(
@@ -64,7 +67,7 @@ describe("listProblems", () => {
         }
     });
 
-    test("empty problemset without meaning content dir", () => {
+    test("empty problemset when the problems dir is absent", () => {
         const root = tmpRoot();
         try {
             assert.deepEqual(listProblems(root), []);
@@ -85,11 +88,11 @@ describe("resolveNote (the -p contract)", () => {
         }
     });
 
-    test("accepts a project-relative and a content-relative path", () => {
+    test("accepts a project-relative and a problems-relative path", () => {
         const root = tmpRoot();
         try {
             const dir = mkNote(root, "luogu", "P4001 demo");
-            assert.equal(resolveNote(root, "content/luogu/P4001 demo"), dir);
+            assert.equal(resolveNote(root, "problems/luogu/P4001 demo"), dir);
             assert.equal(resolveNote(root, "luogu/P4001 demo"), dir);
         } finally {
             fs.rmSync(root, { recursive: true, force: true });
@@ -102,7 +105,7 @@ describe("resolveNote (the -p contract)", () => {
         try {
             const dir = mkNote(root, "luogu", "P4001 demo");
             process.chdir(root);
-            assert.equal(resolveNote(root, "content/luogu/P4001 demo"), dir);
+            assert.equal(resolveNote(root, "problems/luogu/P4001 demo"), dir);
         } finally {
             process.chdir(prev);
             fs.rmSync(root, { recursive: true, force: true });
