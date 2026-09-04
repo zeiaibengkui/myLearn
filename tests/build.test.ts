@@ -8,7 +8,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { buildSite, seoDescription } from "../src/project/build.ts";
+import { buildSite, seoDescription } from "../src/build/index.ts";
 
 function tmpRoot(): string {
     return fs.mkdtempSync(path.join(os.tmpdir(), "mylearn-build-test-"));
@@ -35,6 +35,16 @@ function seedProject(root: string): void {
             "```text",
             "5",
             "```",
+            "",
+            "### 样例 2",
+            "",
+            "| a | b |",
+            "| --- | --- |",
+            "| 1 | 2 |",
+            "",
+            "> quoted",
+            "",
+            "![diagram](diagram.png)",
         ].join("\n")
     );
     fs.writeFileSync(path.join(pdir, "P4001 题解.md"), "---\ntitle: P4001 题解\n---\n\nO(1).\n");
@@ -104,6 +114,19 @@ describe("build", () => {
             assert.ok(page.includes('class="katex"'));
             assert.ok(page.includes('href="P4001%20%E9%A2%98%E8%A7%A3.html"'));
             assert.ok(page.includes("P4001 题解"));
+
+            // markdown-it-class: bootstrap classes on table/img/blockquote
+            assert.ok(page.includes('class="table table-striped"'));
+            assert.ok(page.includes("img-fluid"));
+            assert.ok(page.includes('class="blockquote"'));
+
+            // TOC: auto-injected (note has ≥2 headings), nested <ul>s
+            assert.ok(page.includes('class="markdownIt-TOC"'));
+            assert.ok(page.includes('href="#样例-1"'));
+            // headings: ids keep CJK + GitHub-style # permalinks
+            assert.ok(page.includes('id="样例-1"'));
+            assert.ok(page.includes('class="header-anchor"'));
+            assert.ok(page.includes('aria-hidden="true"'));
 
             // solution page + copied source
             assert.ok(

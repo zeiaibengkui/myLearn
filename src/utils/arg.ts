@@ -6,7 +6,7 @@
 import path from "node:path";
 import { program } from "./program.ts";
 import initProject from "../project/init.ts";
-import { buildSite } from "../project/build.ts";
+import { buildSite } from "../build/index.ts";
 import { watch, watchContinuous, type NoteDiff } from "../maintain/watch.ts";
 import {
     maintain as maintainLuogu,

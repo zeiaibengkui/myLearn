@@ -11,6 +11,8 @@ import fs from "node:fs";
 import path from "node:path";
 import markdownit from "markdown-it";
 import mdKatex from "markdown-it-katex";
+import classPlugin from "markdown-it-class";
+import markdownItAnchor from "markdown-it-anchor";
 import { listProblems } from "../ai/problems.ts";
 import {
     listSolutions,
@@ -29,8 +31,52 @@ const BOOTSTRAP_JS =
 const KATEX_CSS = "https://cdn.jsdelivr.net/npm/katex@0.6.0/dist/katex.min.css";
 const JQUERY = "https://code.jquery.com/jquery-3.7.1.min.js";
 
-// one renderer for the whole build (plugins are per instance)
-const md = markdownit({ html: false, linkify: true }).use(mdKatex);
+/** Heading id slug: lowercase, spaces → dashes, drop everything but
+ *  letters/digits/dashes. The plugin default URI-encodes CJK; ours keeps the
+ *  original characters, so Chinese anchors read naturally. */
+function slugify(value: string): string {
+    return value
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, "-")
+        .replace(/[^\p{L}\p{N}-]+/gu, "")
+        .replace(/-+/g, "-")
+        .replace(/^-|-$/g, "");
+}
+
+/** One heading for the TOC: level (h1..h6), title (inline text stripped)
+ *  and the slug used as the heading id — both come from markdown-it-anchor's
+ *  callback, collected during a single render. The renderer is module-scoped
+ *  and shared, so the list is reset per render. */
+interface TocEntry {
+    level: number;
+    title: string;
+    slug: string;
+}
+let tocEntries: TocEntry[] = [];
+
+// one renderer for the whole build. markdown-it-class attaches bootstrap
+// classes to rendered tags (keyed by token.tag); markdown-it-anchor gives
+// headings ids + GitHub-style # permalinks, and feeds the TOC through its
+// callback (our slugify keeps CJK — the plugin default URI-encodes it).
+const md = markdownit({ html: false, linkify: true })
+    .use(mdKatex)
+    .use(classPlugin, {
+        table: ["table", "table-striped"],
+        img: "img-fluid",
+        blockquote: "blockquote",
+    })
+    .use(markdownItAnchor, {
+        slugify,
+        permalink: markdownItAnchor.permalink.ariaHidden({ placement: "before" }),
+        callback(token, info) {
+            tocEntries.push({
+                level: Number(token.tag.slice(1)),
+                title: info.title,
+                slug: info.slug,
+            });
+        },
+    });
 
 /** Dark-mode overrides the shell injects into iframe documents (scoped to
  *  `[data-bs-theme="dark"]`, so they are inert when the light theme is on;
@@ -109,30 +155,30 @@ function pageHtml(
         ? `<span class="badge text-bg-secondary ms-2">${esc(chip)}</span>`
         : "";
     return /* HTML */ `<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="${safeDesc}">
-<meta property="og:title" content="${safeTitle}">
-<meta property="og:description" content="${safeDesc}">
-<meta property="og:type" content="article">
-<title>${safeTitle} – myLearn</title>
-<link rel="stylesheet" href="${BOOTSTRAP_CSS}">
-<link rel="stylesheet" href="${KATEX_CSS}">
-</head>
-<body class="bg-body-tertiary">
-<div class="container py-4">
-<header class="d-flex align-items-center mb-3">
-    <h1 class="h3 mb-0">${safeTitle}</h1>${badge}
-</header>
-<main>
-${body}
-</main>
-</div>
-</body>
-</html>
-`;
+        <html lang="zh-CN">
+            <head>
+                <meta charset="utf-8" />
+                <meta
+                    name="viewport"
+                    content="width=device-width, initial-scale=1" />
+                <meta name="description" content="${safeDesc}" />
+                <meta property="og:title" content="${safeTitle}" />
+                <meta property="og:description" content="${safeDesc}" />
+                <meta property="og:type" content="article" />
+                <title>${safeTitle} – myLearn</title>
+                <link rel="stylesheet" href="${BOOTSTRAP_CSS}" />
+                <link rel="stylesheet" href="${KATEX_CSS}" />
+            </head>
+            <body class="bg-body-tertiary">
+                <div class="container py-4">
+                    <header class="d-flex align-items-center mb-3">
+                        <h1 class="h3 mb-0">${safeTitle}</h1>
+                        ${badge}
+                    </header>
+                    <main>${body}</main>
+                </div>
+            </body>
+        </html> `;
 }
 
 /** all files under dir as rel paths, recursively (sorted) */
@@ -154,6 +200,47 @@ function noteTitle(text: string, fallback: string): string {
     const m = text.match(/^\s{0,3}#\s+(.+)$/m);
     if (!m) return fallback;
     return m[1].replace(/[*_`]/g, "").trim() || fallback;
+}
+
+/** TOC list nested by heading level: a deeper level opens a new <ul>, a jump
+ *  back closes them (entries are document-ordered). */
+function tocHtml(entries: TocEntry[]): string {
+    let out = "";
+    const stack: number[] = [];
+    for (const e of entries) {
+        while (stack.length && stack[stack.length - 1] > e.level) {
+            out += "</li></ul>";
+            stack.pop();
+        }
+        if (!stack.length || stack[stack.length - 1] < e.level) {
+            out += '<ul class="markdownIt-TOC">';
+            stack.push(e.level);
+        } else {
+            out += "</li>";
+        }
+        out += `<li><a href="#${e.slug}">${esc(e.title)}</a>`;
+    }
+    while (stack.length) {
+        out += "</li></ul>";
+        stack.pop();
+    }
+    return out;
+}
+
+/** Render a markdown body. An explicit `@[toc]` marker — or one injected
+ *  automatically when the note has ≥2 headings — is swapped for the nested
+ *  TOC (the marker renders as a plain paragraph first). Without a marker no
+ *  index is generated. */
+function renderMarkdown(markdown: string): string {
+    const headings = markdown.match(/^\s{0,3}#{1,6}\s/gm);
+    if (!/^@\[toc\]\s*$/m.test(markdown) && headings && headings.length >= 2) {
+        markdown = `@[toc]\n\n${markdown}`;
+    }
+    tocEntries = [];
+    const body = md.render(markdown);
+    return tocEntries.length
+        ? body.replace(/<p>\s*@\[toc\]\s*<\/p>/g, tocHtml(tocEntries))
+        : body;
 }
 
 function writeHtml(
@@ -190,7 +277,7 @@ function buildProblemNotes(root: string, outRoot: string): number {
                 path.join(outDir, solFile),
                 solTitle,
                 solDesc,
-                md.render(solDesc)
+                renderMarkdown(solDesc)
             );
             pages++;
             links.push(
@@ -210,7 +297,7 @@ function buildProblemNotes(root: string, outRoot: string): number {
             path.join(outDir, "index.html"),
             title,
             description,
-            md.render(description) + solutionsBlock
+            renderMarkdown(description) + solutionsBlock
         );
         pages++;
     }
@@ -229,7 +316,7 @@ function buildFreeformNotes(root: string, outRoot: string): number {
             path.join(outRoot, "notes", `${rel.slice(0, -3)}.html`),
             noteTitle(text, path.basename(rel, ".md")),
             text,
-            md.render(text)
+            renderMarkdown(text)
         );
         pages++;
     }
@@ -313,14 +400,14 @@ function renderTree(nodes: ShellNode[]): string {
                     return (
                         `<li><button type="button" class="btn btn-link btn-sm text-start w-100 text-truncate tree-toggle" data-bs-toggle="collapse" data-bs-target="#${id}" aria-expanded="${open}">` +
                         `<span class="tree-caret">${open ? "▾" : "▸"}</span> ${esc(n.title)}</button>` +
-                        `<ul class="list-unstyled collapse${open ? " show" : ""}" id="${id}">${render(n.children)}</ul>` +
+                        `<ul class="list-unstyled ms-3 collapse${open ? " show" : ""}" id="${id}">${render(n.children)}</ul>` +
                         `</li>`
                     );
                 }
                 return `<li><a class="d-block text-truncate tree-link" href="${n.href}">${esc(n.title)}</a></li>`;
             })
             .join("");
-    return `<ul class="list-unstyled mb-0" id="tree">${render(nodes, true)}</ul>`;
+    return `<ul ms-3 class="list-unstyled mb-0" id="tree">${render(nodes, true)}</ul>`;
 }
 
 /** Shell client: dark-mode toggle (persisted in localStorage, default from

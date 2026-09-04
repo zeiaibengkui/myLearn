@@ -216,6 +216,12 @@ importers:
       markdown-it:
         specifier: ^15.0.1
         version: 15.0.1
+      markdown-it-anchor:
+        specifier: ^9.2.1
+        version: 9.2.1(@types/markdown-it@14.2.0)(markdown-it@15.0.1)
+      markdown-it-class:
+        specifier: ^1.0.0
+        version: 1.0.0
       markdown-it-katex:
         specifier: ^2.0.3
         version: 2.0.3
@@ -579,6 +585,15 @@ packages:
   linkify-it@6.1.0:
     resolution: {integrity: sha512-wJ/TwpSDTLepCrQoYWYIExIKg5Zchex2Nn5yk2mFnB+6PtdkHtyLx742md9csRjjOnGkKIS/RrbY7l8D6gT9Vw==}
 
+  markdown-it-anchor@9.2.1:
+    resolution: {integrity: sha512-p6APiLJDFAW2GEvaavDvhIBn7jrX2jLv77NkBGgNacFTurbORYc4pyYySg/mI6mpR6cHQuAtzKtmqgQr4K8dsQ==}
+    peerDependencies:
+      '@types/markdown-it': '*'
+      markdown-it: '*'
+
+  markdown-it-class@1.0.0:
+    resolution: {integrity: sha512-CVDYqSgmErLAqInwWu8WmAR2nX6MMIBIt8LB6qg8DNldca9+aoC6ZyuY0lvBMsaTSHNFJRkcHVR1XjLw9nr9qQ==}
+
   markdown-it-katex@2.0.3:
     resolution: {integrity: sha512-nUkkMtRWeg7OpdflamflE/Ho/pWl64Lk9wNBKOmaj33XkQdumhXAIYhI0WO03GeiycPCsxbmX536V5NEXpC3Ng==}
 
@@ -847,6 +862,13 @@ snapshots:
   linkify-it@6.1.0:
     dependencies:
       uc.micro: 3.0.0
+
+  markdown-it-anchor@9.2.1(@types/markdown-it@14.2.0)(markdown-it@15.0.1):
+    dependencies:
+      '@types/markdown-it': 14.2.0
+      markdown-it: 15.0.1
+
+  markdown-it-class@1.0.0: {}
 
   markdown-it-katex@2.0.3:
     dependencies:

@@ -5,7 +5,11 @@
             "node"
         ],
         "allowImportingTsExtensions": true,
-        "rewriteRelativeImportExtensions": true
+        "rewriteRelativeImportExtensions": true,
+        // dependency declarations are not ours to fix — markdown-it plugins
+        // (e.g. markdown-it-anchor) use the name 'MarkdownIt' as a type where
+        // @types/markdown-it exports a value-only const (TS2749)
+        "skipLibCheck": true
     },
     "exclude": [
         "node_modules"
