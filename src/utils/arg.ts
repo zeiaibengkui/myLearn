@@ -6,6 +6,7 @@
 import path from "node:path";
 import { program } from "./program.ts";
 import initProject from "../project/init.ts";
+import { buildSite } from "../project/build.ts";
 import { watch, watchContinuous, type NoteDiff } from "../maintain/watch.ts";
 import {
     maintain as maintainLuogu,
@@ -36,6 +37,14 @@ program
     .action((dir: string) => {
         initProject(path.resolve(dir));
     });
+program
+    .command("build")
+    .description("Generate a static site (build/) from problems/ and notes/ — markdown-it + katex, bootstrap/jquery CDN, iframe shell")
+    .action(() => {
+        const report = buildSite(globalThis.projectRoot);
+        console.log(`built ${report.pages} page(s) → ${report.dir}`);
+    });
+
 function printDiff(diff: NoteDiff): void {
     for (const f of diff.added) console.log(`  [added]   ${f}`);
     for (const f of diff.changed) console.log(`  [changed] ${f}`);

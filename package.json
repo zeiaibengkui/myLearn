@@ -4,7 +4,7 @@
     "description": "",
     "main": "index.js",
     "scripts": {
-        "test": "tsx --test tests/fetch.test.ts tests/maintain.test.ts tests/ai.test.ts",
+        "test": "tsx --test tests/fetch.test.ts tests/maintain.test.ts tests/ai.test.ts tests/build.test.ts",
         "run": "pnpx tsx index.ts"
     },
     "keywords": [],
@@ -21,9 +21,12 @@
     "type": "module",
     "dependencies": {
         "commander": "^15.0.0",
-        "gray-matter": "^4.0.3"
+        "gray-matter": "^4.0.3",
+        "markdown-it": "^15.0.1",
+        "markdown-it-katex": "^2.0.3"
     },
     "devDependencies": {
+        "@types/markdown-it": "^14.2.0",
         "@types/node": "^26.3.0",
         "tsx": "^4.23.12",
         "typescript": "^7.0.2"
