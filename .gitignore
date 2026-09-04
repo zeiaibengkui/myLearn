@@ -1,7 +1,8 @@
 # node
 node_modules/
 dist/
-build/
+# generated static site (root only — src/build/ is source)
+/build/
 coverage/
 .env
 .env.*
