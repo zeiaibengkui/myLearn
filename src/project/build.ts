@@ -21,8 +21,10 @@ import {
     readSolutionContent,
 } from "../utils/persist.ts";
 
-const BOOTSTRAP_CSS = "https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css";
-const BOOTSTRAP_JS = "https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js";
+const BOOTSTRAP_CSS =
+    "https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css";
+const BOOTSTRAP_JS =
+    "https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js";
 // markdown-it-katex bundles katex@0.6 — keep the CSS in sync with it
 const KATEX_CSS = "https://cdn.jsdelivr.net/npm/katex@0.6.0/dist/katex.min.css";
 const JQUERY = "https://code.jquery.com/jquery-3.7.1.min.js";
@@ -45,8 +47,8 @@ const FRAME_THEME_JS = [
     'window.addEventListener("message", function (e) {',
     '  if (e && e.data && e.data.type === "mylearn-theme") {',
     '    document.documentElement.setAttribute("data-bs-theme", e.data.theme);',
-    '  }',
-    '});',
+    "  }",
+    "});",
 ].join("\n");
 
 export interface BuildReport {
@@ -90,7 +92,7 @@ export function seoDescription(markdown: string): string {
  *  disk stay spelled as authored. */
 function hrefFor(...segments: string[]): string {
     return segments
-        .map((s) => s.split("/").map(encodeURIComponent).join("/"))
+        .map(s => s.split("/").map(encodeURIComponent).join("/"))
         .join("/");
 }
 
@@ -103,8 +105,10 @@ function pageHtml(
 ): string {
     const safeTitle = esc(title);
     const safeDesc = esc(description);
-    const badge = chip ? `<span class="badge text-bg-secondary ms-2">${esc(chip)}</span>` : "";
-    return `<!DOCTYPE html>
+    const badge = chip
+        ? `<span class="badge text-bg-secondary ms-2">${esc(chip)}</span>`
+        : "";
+    return /* HTML */ `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
@@ -152,9 +156,17 @@ function noteTitle(text: string, fallback: string): string {
     return m[1].replace(/[*_`]/g, "").trim() || fallback;
 }
 
-function writeHtml(pagePath: string, title: string, description: string, body: string): void {
+function writeHtml(
+    pagePath: string,
+    title: string,
+    description: string,
+    body: string
+): void {
     fs.mkdirSync(path.dirname(pagePath), { recursive: true });
-    fs.writeFileSync(pagePath, pageHtml(title, seoDescription(description), body));
+    fs.writeFileSync(
+        pagePath,
+        pageHtml(title, seoDescription(description), body)
+    );
 }
 
 /** problem notes + their solution pages + copied sources */
@@ -170,12 +182,20 @@ function buildProblemNotes(root: string, outRoot: string): number {
         const links: string[] = [];
         for (const sol of listSolutions(note.dir)) {
             const solPath = path.join(note.dir, sol);
-            const { title: solTitle, description: solDesc } = readSolutionContent(solPath);
+            const { title: solTitle, description: solDesc } =
+                readSolutionContent(solPath);
             const solFile = sol.replace(/\.md$/, ".html");
             const href = hrefFor(solFile);
-            writeHtml(path.join(outDir, solFile), solTitle, solDesc, md.render(solDesc));
+            writeHtml(
+                path.join(outDir, solFile),
+                solTitle,
+                solDesc,
+                md.render(solDesc)
+            );
             pages++;
-            links.push(`<li><a href="${href}">${esc(solTitle)}</a> <span class="text-muted small">${esc(href)}</span></li>`);
+            links.push(
+                `<li><a href="${href}">${esc(solTitle)}</a> <span class="text-muted small">${esc(href)}</span></li>`
+            );
         }
         const solutionsBlock = links.length
             ? `<section class="mt-4"><h2 class="h5">Solutions</h2><ul>${links.join("\n")}</ul></section>`
@@ -227,14 +247,18 @@ interface ShellNode {
 function problemTree(root: string): ShellNode[] {
     const nodes: ShellNode[] = [];
     for (const note of listProblems(root)) {
-        let cat = nodes.find((n) => n.title === note.category);
+        let cat = nodes.find(n => n.title === note.category);
         if (!cat) {
             cat = { title: note.category, children: [] };
             nodes.push(cat);
         }
         cat.children!.push({
             title: note.title,
-            href: hrefFor("problems", path.relative(problemsDir(root), note.dir), "index.html"),
+            href: hrefFor(
+                "problems",
+                path.relative(problemsDir(root), note.dir),
+                "index.html"
+            ),
         });
     }
     return nodes;
@@ -257,7 +281,7 @@ function notesTree(root: string): ShellNode[] {
                     href: hrefFor("notes", `${rel.slice(0, -3)}.html`),
                 });
             } else {
-                let folder = cur.find((n) => n.title === parts[i]);
+                let folder = cur.find(n => n.title === parts[i]);
                 if (!folder) {
                     folder = { title: parts[i], children: [] };
                     cur.push(folder);
@@ -403,56 +427,78 @@ function buildIndexHtml(outRoot: string, tree: ShellNode[]): void {
         }
         return "";
     })(tree);
-    const html = `<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="myLearn knowledge base — problems and notes rendered as a static site">
-<meta property="og:title" content="myLearn — knowledge base">
-<meta property="og:type" content="website">
-<title>myLearn — knowledge base</title>
-<link rel="stylesheet" href="${BOOTSTRAP_CSS}">
-<style>
-/* minimal shell chrome; colors come from bootstrap CSS variables */
-#tree a { padding: 0.15rem 0.5rem; border-radius: 0.25rem; }
-#tree a:hover { background: var(--bs-secondary-bg); }
-#tree .tree-toggle { padding-left: 0.5rem; box-shadow: none; }
-</style>
-</head>
-<body class="bg-body-tertiary">
-<nav class="navbar navbar-dark bg-dark mb-3">
-    <div class="container-fluid">
-        <span class="navbar-brand">myLearn</span>
-        <span class="navbar-text small">knowledge base</span>
-        <button id="themeToggle" class="btn btn-sm btn-outline-light" type="button">dark 🌙</button>
-    </div>
-</nav>
-<nav class="container-fluid mb-2" aria-label="breadcrumb">
-    <ol class="breadcrumb mb-0" id="crumbs"></ol>
-</nav>
-<div class="container-fluid">
-    <div class="row g-3">
-        <div class="col-3">
-            <div class="card">
-                <div class="card-body p-2">
-                    ${treeHtml || '<div class="text-muted">nothing to show</div>'}
+    const html = /* HTML */ `<!DOCTYPE html>
+        <html lang="zh-CN">
+            <head>
+                <meta charset="utf-8" />
+                <meta
+                    name="viewport"
+                    content="width=device-width, initial-scale=1" />
+                <meta
+                    name="description"
+                    content="myLearn knowledge base — problems and notes rendered as a static site" />
+                <meta property="og:title" content="myLearn — knowledge base" />
+                <meta property="og:type" content="website" />
+                <title>myLearn — knowledge base</title>
+                <link rel="stylesheet" href="${BOOTSTRAP_CSS}" />
+                <style>
+                    /* minimal shell chrome; colors come from bootstrap CSS variables */
+                    #tree a {
+                        padding: 0.15rem 0.5rem;
+                        border-radius: 0.25rem;
+                    }
+                    #tree a:hover {
+                        background: var(--bs-secondary-bg);
+                    }
+                    #tree .tree-toggle {
+                        padding-left: 0.5rem;
+                        box-shadow: none;
+                    }
+                </style>
+            </head>
+            <body class="bg-body-tertiary">
+                <nav class="navbar navbar-dark bg-dark mb-3">
+                    <div class="container-fluid">
+                        <span class="navbar-brand">myLearn</span>
+                        <span class="navbar-text small">knowledge base</span>
+                        <button
+                            id="themeToggle"
+                            class="btn btn-sm btn-outline-light"
+                            type="button">
+                            dark 🌙
+                        </button>
+                    </div>
+                </nav>
+                <nav class="container-fluid mb-2" aria-label="breadcrumb">
+                    <ol class="breadcrumb mb-0" id="crumbs"></ol>
+                </nav>
+                <div class="container-fluid">
+                    <div class="row g-3">
+                        <div class="col-3">
+                            <div class="card">
+                                <div class="card-body p-2">
+                                    ${treeHtml ||
+                                    '<div class="text-muted">nothing to show</div>'}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-9">
+                            <iframe
+                                id="content"
+                                class="w-100 rounded border"
+                                src="${first}"
+                                style="height: calc(100vh - 110px);"
+                                title="content"></iframe>
+                        </div>
+                    </div>
                 </div>
-            </div>
-        </div>
-        <div class="col-9">
-            <iframe id="content" class="w-100 rounded border" src="${first}" style="height: calc(100vh - 110px);" title="content"></iframe>
-        </div>
-    </div>
-</div>
-<script src="${JQUERY}"></script>
-<script src="${BOOTSTRAP_JS}"></script>
-<script>
-${SHELL_SCRIPT}
-</script>
-</body>
-</html>
-`;
+                <script src="${JQUERY}"></script>
+                <script src="${BOOTSTRAP_JS}"></script>
+                <script>
+                    ${SHELL_SCRIPT};
+                </script>
+            </body>
+        </html> `;
     fs.writeFileSync(path.join(outRoot, "index.html"), html);
 }
 
