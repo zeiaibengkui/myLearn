@@ -22,6 +22,7 @@ import {
 } from "../utils/persist.ts";
 
 const BOOTSTRAP_CSS = "https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css";
+const BOOTSTRAP_JS = "https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js";
 // markdown-it-katex bundles katex@0.6 — keep the CSS in sync with it
 const KATEX_CSS = "https://cdn.jsdelivr.net/npm/katex@0.6.0/dist/katex.min.css";
 const JQUERY = "https://code.jquery.com/jquery-3.7.1.min.js";
@@ -215,6 +216,89 @@ function buildFreeformNotes(root: string, outRoot: string): number {
     return pages;
 }
 
+/** One node of the explorer-style shell tree: folder (children) or note leaf. */
+interface ShellNode {
+    title: string;
+    href?: string;
+    children?: ShellNode[];
+}
+
+/** problems/<category>/<title> → a folder per category, note leaves. */
+function problemTree(root: string): ShellNode[] {
+    const nodes: ShellNode[] = [];
+    for (const note of listProblems(root)) {
+        let cat = nodes.find((n) => n.title === note.category);
+        if (!cat) {
+            cat = { title: note.category, children: [] };
+            nodes.push(cat);
+        }
+        cat.children!.push({
+            title: note.title,
+            href: hrefFor("problems", path.relative(problemsDir(root), note.dir), "index.html"),
+        });
+    }
+    return nodes;
+}
+
+/** notes/ mirrored: directories become folders, .md files leaves. */
+function notesTree(root: string): ShellNode[] {
+    const base = notesDir(root);
+    if (!fs.existsSync(base)) return [];
+    const rootNode: ShellNode = { title: "notes", children: [] };
+    for (const rel of walkFiles(base)) {
+        const parts = rel.split("/");
+        let cur = rootNode.children!;
+        for (let i = 0; i < parts.length; i++) {
+            const last = i === parts.length - 1;
+            if (last && parts[i].endsWith(".md")) {
+                const text = fs.readFileSync(path.join(base, rel), "utf-8");
+                cur.push({
+                    title: noteTitle(text, path.basename(parts[i], ".md")),
+                    href: hrefFor("notes", `${rel.slice(0, -3)}.html`),
+                });
+            } else {
+                let folder = cur.find((n) => n.title === parts[i]);
+                if (!folder) {
+                    folder = { title: parts[i], children: [] };
+                    cur.push(folder);
+                }
+                cur = folder.children!;
+            }
+        }
+    }
+    return rootNode.children!.length ? [rootNode] : [];
+}
+
+function countLeaves(nodes: ShellNode[]): number {
+    return nodes.reduce(
+        (n, x) => n + (x.href ? 1 : countLeaves(x.children ?? [])),
+        0
+    );
+}
+
+/** Explorer-style tree markup: bootstrap collapse folders, note links as
+ *  leaves. Needs the bootstrap JS bundle (data-bs-toggle="collapse"). */
+function renderTree(nodes: ShellNode[]): string {
+    let nextId = 0;
+    const render = (list: ShellNode[], openFirst = false): string =>
+        list
+            .map((n, i) => {
+                if (n.children && n.children.length) {
+                    const id = `t${nextId++}`;
+                    const open = openFirst && i === 0;
+                    return (
+                        `<li><button type="button" class="btn btn-link btn-sm text-start w-100 text-truncate tree-toggle" data-bs-toggle="collapse" data-bs-target="#${id}" aria-expanded="${open}">` +
+                        `<span class="tree-caret">${open ? "▾" : "▸"}</span> ${esc(n.title)}</button>` +
+                        `<ul class="list-unstyled collapse${open ? " show" : ""}" id="${id}">${render(n.children)}</ul>` +
+                        `</li>`
+                    );
+                }
+                return `<li><a class="d-block text-truncate tree-link" href="${n.href}">${esc(n.title)}</a></li>`;
+            })
+            .join("");
+    return `<ul class="list-unstyled mb-0" id="tree">${render(nodes, true)}</ul>`;
+}
+
 /** Shell client: dark-mode toggle (persisted in localStorage, default from
  *  prefers-color-scheme), and iframe injection — on every frame load the
  *  shell inspects the frame document, injects the dark CSS + a theme
@@ -269,32 +353,56 @@ $(function () {
     }
   });
   $("#content").on("load", function () { injectFrame(this); });
-  $("#nav a").on("click", function (e) {
+
+  function escH(s) {
+    return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+  function setCrumbs(href) {
+    var segs = (href || "").split("/").filter(Boolean).map(decodeURIComponent);
+    var last = segs.length - 1;
+    if (last >= 0 && /\.html$/.test(segs[last])) segs[last] = segs[last].replace(/\.html$/, "");
+    if (last >= 0 && segs[last] === "index") segs.pop();
+    if (!segs.length) {
+      $("#crumbs").html('<li class="breadcrumb-item active">myLearn</li>');
+      return;
+    }
+    $("#crumbs").html(
+      segs.map(function (s, i) {
+        var active = i === segs.length - 1;
+        return '<li class="breadcrumb-item' + (active ? ' active" aria-current="page' : '') + '">' + escH(s) + "</li>";
+      }).join("")
+    );
+  }
+  $("#tree a").on("click", function (e) {
     e.preventDefault();
-    $("#content").attr("src", $(this).attr("href"));
-    $("#nav a").removeClass("active");
+    var href = $(this).attr("href");
+    $("#content").attr("src", href);
+    $("#tree a").removeClass("active");
     $(this).addClass("active");
+    setCrumbs(href);
+  });
+  $("#tree").on("click", ".tree-toggle", function () {
+    var caret = $(this).find(".tree-caret");
+    caret.text(caret.text() === "▸" ? "▾" : "▸");
   });
 
   applyShell();
   injectFrame(document.getElementById("content"));
+  setCrumbs($("#content").attr("src"));
 });
 `;
 
-/** The shell: Bootstrap nav (CDN) + grouped links + content iframe. */
-function buildIndexHtml(outRoot: string, groups: { group: string; title: string; href: string; chip?: string }[]): void {
-    let current = "";
-    const items = groups
-        .map((n) => {
-            const head =
-                n.group !== current
-                    ? `<h6 class="text-uppercase small text-secondary pt-3 ps-2 mb-1">${esc(n.group)}</h6>`
-                    : "";
-            current = n.group;
-            return head + `<a class="list-group-item list-group-item-action" href="${n.href}">${esc(n.title)}${n.chip ? ` <span class="small text-muted">${esc(n.chip)}</span>` : ""}</a>`;
-        })
-        .join("\n");
-    const first = groups[0]?.href ?? "";
+/** The shell: Bootstrap nav (CDN) + explorer tree + breadcrumb + iframe. */
+function buildIndexHtml(outRoot: string, tree: ShellNode[]): void {
+    const treeHtml = countLeaves(tree) ? renderTree(tree) : "";
+    const first = (function firstLeaf(nodes: ShellNode[]): string {
+        for (const n of nodes) if (n.href) return n.href;
+        for (const n of nodes) {
+            const h = n.children ? firstLeaf(n.children) : "";
+            if (h) return h;
+        }
+        return "";
+    })(tree);
     const html = `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -305,6 +413,12 @@ function buildIndexHtml(outRoot: string, groups: { group: string; title: string;
 <meta property="og:type" content="website">
 <title>myLearn — knowledge base</title>
 <link rel="stylesheet" href="${BOOTSTRAP_CSS}">
+<style>
+/* minimal shell chrome; colors come from bootstrap CSS variables */
+#tree a { padding: 0.15rem 0.5rem; border-radius: 0.25rem; }
+#tree a:hover { background: var(--bs-secondary-bg); }
+#tree .tree-toggle { padding-left: 0.5rem; box-shadow: none; }
+</style>
 </head>
 <body class="bg-body-tertiary">
 <nav class="navbar navbar-dark bg-dark mb-3">
@@ -314,12 +428,15 @@ function buildIndexHtml(outRoot: string, groups: { group: string; title: string;
         <button id="themeToggle" class="btn btn-sm btn-outline-light" type="button">dark 🌙</button>
     </div>
 </nav>
+<nav class="container-fluid mb-2" aria-label="breadcrumb">
+    <ol class="breadcrumb mb-0" id="crumbs"></ol>
+</nav>
 <div class="container-fluid">
     <div class="row g-3">
         <div class="col-3">
             <div class="card">
                 <div class="card-body p-2">
-                    <div class="list-group list-group-flush" id="nav">${items || '<div class="list-group-item text-muted">nothing to show</div>'}</div>
+                    ${treeHtml || '<div class="text-muted">nothing to show</div>'}
                 </div>
             </div>
         </div>
@@ -329,6 +446,7 @@ function buildIndexHtml(outRoot: string, groups: { group: string; title: string;
     </div>
 </div>
 <script src="${JQUERY}"></script>
+<script src="${BOOTSTRAP_JS}"></script>
 <script>
 ${SHELL_SCRIPT}
 </script>
@@ -350,27 +468,11 @@ export function buildSite(root: string): BuildReport {
     let pages = buildProblemNotes(root, outRoot);
     pages += buildFreeformNotes(root, outRoot);
 
-    // shell nav: one group per category (problem notes), then Notes
-    const groups: { group: string; title: string; href: string; chip?: string }[] = [];
-    for (const note of listProblems(root)) {
-        groups.push({
-            group: note.category,
-            title: note.title,
-            href: hrefFor("problems", path.relative(problemsDir(root), note.dir), "index.html"),
-        });
-    }
-    const notesBase = notesDir(root);
-    if (fs.existsSync(notesBase)) {
-        for (const rel of walkFiles(notesBase)) {
-            if (!rel.endsWith(".md")) continue;
-            const text = fs.readFileSync(path.join(notesBase, rel), "utf-8");
-            groups.push({
-                group: "notes",
-                title: noteTitle(text, path.basename(rel, ".md")),
-                href: hrefFor("notes", `${rel.slice(0, -3)}.html`),
-            });
-        }
-    }
-    buildIndexHtml(outRoot, groups);
+    // shell tree: problems/<category>/<title> folders, then mirrored notes/
+    const tree: ShellNode[] = [];
+    const problems = problemTree(root);
+    if (problems.length) tree.push({ title: "problems", children: problems });
+    tree.push(...notesTree(root));
+    buildIndexHtml(outRoot, tree);
     return { dir: outRoot, pages };
 }

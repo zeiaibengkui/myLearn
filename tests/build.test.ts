@@ -70,10 +70,19 @@ describe("build", () => {
             // shell: bootstrap + jquery CDN, iframe, nav hrefs
             const index = fs.readFileSync(path.join(root, "build", "index.html"), "utf-8");
             assert.ok(index.includes("bootstrap@5.3.3"));
+            assert.ok(index.includes("bootstrap.bundle.min.js"));
             assert.ok(index.includes("code.jquery.com/jquery-3.7.1"));
             assert.ok(index.includes("<iframe"));
             assert.ok(index.includes('href="problems/luogu/P4001/index.html"'));
             assert.ok(index.includes('href="notes/algos/trick.html"'));
+
+            // explorer shell: folder tree (bootstrap collapse) + breadcrumb
+            assert.ok(index.includes('id="tree"'));
+            assert.ok(index.includes('id="t0"'));
+            assert.ok(index.includes('data-bs-toggle="collapse"'));
+            assert.ok(index.includes('problems</button>'));
+            assert.ok(index.includes('id="crumbs"'));
+            assert.ok(index.includes("breadcrumb-item"));
 
             // dark mode: toggle, persistence, iframe CSS+JS injection
             assert.ok(index.includes('id="themeToggle"'));
