@@ -29,6 +29,25 @@ const JQUERY = "https://code.jquery.com/jquery-3.7.1.min.js";
 // one renderer for the whole build (plugins are per instance)
 const md = markdownit({ html: false, linkify: true }).use(mdKatex);
 
+/** Dark-mode overrides the shell injects into iframe documents (scoped to
+ *  `[data-bs-theme="dark"]`, so they are inert when the light theme is on;
+ *  Base bootstrap swap happens via the `data-bs-theme` attribute itself). */
+const DARK_CSS = [
+    '[data-bs-theme="dark"] pre, [data-bs-theme="dark"] code, [data-bs-theme="dark"] .highlight { background-color: #26292e; color: #e9ecef; }',
+    '[data-bs-theme="dark"] blockquote { border-color: #495057; }',
+    '[data-bs-theme="dark"] td, [data-bs-theme="dark"] th { border-color: #37393d; }',
+].join("\n");
+
+/** JS the shell injects into the iframe: re-apply the theme when the shell
+ *  toggles it (postMessage — also works when direct frame access is denied). */
+const FRAME_THEME_JS = [
+    'window.addEventListener("message", function (e) {',
+    '  if (e && e.data && e.data.type === "mylearn-theme") {',
+    '    document.documentElement.setAttribute("data-bs-theme", e.data.theme);',
+    '  }',
+    '});',
+].join("\n");
+
 export interface BuildReport {
     /** output directory (absolute) */
     dir: string;
@@ -196,6 +215,72 @@ function buildFreeformNotes(root: string, outRoot: string): number {
     return pages;
 }
 
+/** Shell client: dark-mode toggle (persisted in localStorage, default from
+ *  prefers-color-scheme), and iframe injection — on every frame load the
+ *  shell inspects the frame document, injects the dark CSS + a theme
+ *  listener script, and applies `data-bs-theme` directly (falls back to
+ *  postMessage when the frame is cross-origin, e.g. opened via file://). */
+const SHELL_SCRIPT = `
+$(function () {
+  var THEME_KEY = "mylearn-theme";
+  var theme = localStorage.getItem(THEME_KEY);
+  if (!theme) {
+    theme = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  }
+  var DARK_CSS = ${JSON.stringify(DARK_CSS)};
+
+  function applyShell() {
+    document.documentElement.setAttribute("data-bs-theme", theme);
+    $("#themeToggle").text(theme === "dark" ? "light ☀" : "dark 🌙");
+  }
+  function injectFrame(frame) {
+    var doc, win;
+    try {
+      doc = frame.contentDocument;
+      win = frame.contentWindow;
+    } catch (e) {
+      return; // cross-origin frame — the shell theme still applies
+    }
+    if (!doc || !win) return;
+    var style = doc.getElementById("mylearn-theme-css");
+    if (!style) {
+      style = doc.createElement("style");
+      style.id = "mylearn-theme-css";
+      doc.head.appendChild(style);
+    }
+    style.textContent = DARK_CSS; // rules are [data-bs-theme="dark"]-scoped
+    if (!win.__myLearnThemeFrame) {
+      win.__myLearnThemeFrame = true;
+      var js = doc.createElement("script");
+      js.textContent = ${JSON.stringify(FRAME_THEME_JS)};
+      doc.head.appendChild(js);
+    }
+    doc.documentElement.setAttribute("data-bs-theme", theme);
+  }
+
+  $("#themeToggle").on("click", function () {
+    theme = theme === "dark" ? "light" : "dark";
+    localStorage.setItem(THEME_KEY, theme);
+    applyShell();
+    var frame = document.getElementById("content");
+    injectFrame(frame);
+    if (frame.contentWindow) {
+      frame.contentWindow.postMessage({ type: "mylearn-theme", theme: theme }, "*");
+    }
+  });
+  $("#content").on("load", function () { injectFrame(this); });
+  $("#nav a").on("click", function (e) {
+    e.preventDefault();
+    $("#content").attr("src", $(this).attr("href"));
+    $("#nav a").removeClass("active");
+    $(this).addClass("active");
+  });
+
+  applyShell();
+  injectFrame(document.getElementById("content"));
+});
+`;
+
 /** The shell: Bootstrap nav (CDN) + grouped links + content iframe. */
 function buildIndexHtml(outRoot: string, groups: { group: string; title: string; href: string; chip?: string }[]): void {
     let current = "";
@@ -221,11 +306,12 @@ function buildIndexHtml(outRoot: string, groups: { group: string; title: string;
 <title>myLearn — knowledge base</title>
 <link rel="stylesheet" href="${BOOTSTRAP_CSS}">
 </head>
-<body class="bg-light">
+<body class="bg-body-tertiary">
 <nav class="navbar navbar-dark bg-dark mb-3">
     <div class="container-fluid">
         <span class="navbar-brand">myLearn</span>
         <span class="navbar-text small">knowledge base</span>
+        <button id="themeToggle" class="btn btn-sm btn-outline-light" type="button">dark 🌙</button>
     </div>
 </nav>
 <div class="container-fluid">
@@ -244,14 +330,7 @@ function buildIndexHtml(outRoot: string, groups: { group: string; title: string;
 </div>
 <script src="${JQUERY}"></script>
 <script>
-$(function () {
-  $("#nav a").on("click", function (e) {
-    e.preventDefault();
-    $("#content").attr("src", $(this).attr("href"));
-    $("#nav a").removeClass("active");
-    $(this).addClass("active");
-  });
-});
+${SHELL_SCRIPT}
 </script>
 </body>
 </html>

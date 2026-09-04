@@ -75,6 +75,13 @@ describe("build", () => {
             assert.ok(index.includes('href="problems/luogu/P4001/index.html"'));
             assert.ok(index.includes('href="notes/algos/trick.html"'));
 
+            // dark mode: toggle, persistence, iframe CSS+JS injection
+            assert.ok(index.includes('id="themeToggle"'));
+            assert.ok(index.includes("data-bs-theme"));
+            assert.ok(index.includes("mylearn-theme-css"));
+            assert.ok(index.includes("postMessage"));
+            assert.ok(index.includes("mylearn-theme"));
+
             // problem page: SEO head + katex + escaped html + solution link
             const page = fs.readFileSync(
                 path.join(root, "build", "problems", "luogu", "P4001", "index.html"),
