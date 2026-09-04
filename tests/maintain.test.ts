@@ -113,6 +113,38 @@ describe("watch snapshot", () => {
         }
     });
 
+    test("notes/ (sibling of problems/) is watched with a notes/ prefix and may nest", () => {
+        const root = tmpRoot();
+        try {
+            fs.mkdirSync(path.join(root, "problems", "cat"), { recursive: true });
+            fs.writeFileSync(path.join(root, "problems", "cat", "readme.md"), "x");
+            // no notes/ yet → nothing to report for it
+            assert.deepEqual(watch(root), {
+                added: ["cat/readme.md"],
+                changed: [],
+                removed: [],
+            });
+
+            const note = path.join(root, "notes", "algos", "trick.md");
+            fs.mkdirSync(path.dirname(note), { recursive: true });
+            fs.writeFileSync(note, "trick");
+            const key = "notes/algos/trick.md";
+            assert.deepEqual(watch(root), { added: [key], changed: [], removed: [] });
+
+            const d = new Date(1_701_000_000_000);
+            fs.utimesSync(note, d, d);
+            fs.writeFileSync(note, "trick v2");
+            const d2 = new Date(1_702_000_000_000);
+            fs.utimesSync(note, d2, d2);
+            assert.deepEqual(watch(root), { added: [], changed: [key], removed: [] });
+
+            fs.rmSync(note);
+            assert.deepEqual(watch(root), { added: [], changed: [], removed: [key] });
+        } finally {
+            fs.rmSync(root, { recursive: true, force: true });
+        }
+    });
+
     test("throws when problems/ is missing", () => {
         const root = tmpRoot();
         try {

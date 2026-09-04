@@ -12,9 +12,10 @@ const tree = {
                 "Solution 1.md": "This is solution 1",
             },
         },
-        // freeform notes without a problem statement; can be nested
-        notes: {} as RecursiveRecord,
     },
+    // freeform notes without a problem statement (same depth as problems/);
+    // can be nested
+    notes: {} as RecursiveRecord,
     "readme.md": "# myLearn new project",
     ".mylearn": {
         "config.json": "{}",

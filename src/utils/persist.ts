@@ -1,8 +1,9 @@
 // Layout and disk IO for notes. Single source of truth for where things
 // live: problems are directories under `problems/<category>/<title>/`,
 // holding `problem.md` (frontmatter: title/category), one `<title>.md`
-// per solution, and copied source files. `problems/notes/` holds nested
-// freeform notes (markdown without a problem statement).
+// per solution, and copied source files. `notes/` (a sibling of
+// `problems/`, same depth) holds nestable freeform notes — markdown
+// without a problem statement.
 
 import fs from "node:fs";
 import path from "node:path";
@@ -19,9 +20,14 @@ function safeSegment(segment: string): string {
     return cleaned;
 }
 
-/** Root of the problemset tree: problems + freeform notes. */
+/** Root of the problemset tree. */
 export function problemsDir(root: string): string {
     return path.join(root, "problems");
+}
+
+/** Freeform notes (no problem statement), a sibling of problems/. */
+export function notesDir(root: string): string {
+    return path.join(root, "notes");
 }
 
 export function problemDir(root: string, category: string, title: string): string {

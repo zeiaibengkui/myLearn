@@ -52,9 +52,9 @@ describe("listProblems", () => {
             // a dir with no problem.md and a stray file are not notes
             fs.mkdirSync(path.join(root, "problems", "a", "note c"));
             fs.writeFileSync(path.join(root, "problems", "frag.md"), "x");
-            // freeform notes under problems/notes/ (nested) are not problems
-            fs.mkdirSync(path.join(root, "problems", "notes", "nested"), { recursive: true });
-            fs.writeFileSync(path.join(root, "problems", "notes", "nested", "note.md"), "x");
+            // freeform notes (sibling of problems/) are not problems
+            fs.mkdirSync(path.join(root, "notes", "nested"), { recursive: true });
+            fs.writeFileSync(path.join(root, "notes", "nested", "note.md"), "x");
             const notes = listProblems(root);
             assert.equal(notes.length, 3);
             assert.deepEqual(

@@ -1,6 +1,6 @@
 ---
 name: mylearn
-description: Manage the myLearn competitive-programming knowledge base — fetch problems (Luogu/PDF), read note files, write and submit C++ solutions (auto-validated against samples), and keep the index snapshot fresh. Use when the task involves the problemset, a luogu pid, a solution .cpp, or notes under problems/.
+description: Manage the myLearn competitive-programming knowledge base — fetch problems (Luogu/PDF), read note files, write and submit C++ solutions (auto-validated against samples), and keep the index snapshot fresh. Use when the task involves the problemset, a luogu pid, a solution .cpp, or the freeform notes/ tree.
 ---
 
 # myLearn — knowledge-base workflow
@@ -13,13 +13,13 @@ against the note's samples before it is archived.
 <project>/
 ├── .mylearn/config.json      # project marker (required to run the CLI)
 ├── problems/
-│   ├── notes/               # freeform notes without a problem (nestable)
 │   └── <category>/
 │       └── <title>/
 │           ├── problem.md    # frontmatter: title, category; body = statement + samples
 │           ├── <solution>.md # one per archived solution (written by luogu submit)
 │           ├── Explanation.md # optional: the agent-written explanation (idea, complexity)
 │           └── *.cpp         # copied source files
+├── notes/                    # freeform notes, sibling of problems/ (nestable)
 └── readme.md
 ```
 

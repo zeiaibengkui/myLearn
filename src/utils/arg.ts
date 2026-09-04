@@ -11,7 +11,7 @@ import {
     maintain as maintainLuogu,
 } from "../provider/luogu/maintain.ts";
 import { openNote, resolveNote } from "../ai/problems.ts";
-import { problemsDir } from "./persist.ts";
+import { notesDir, problemsDir } from "./persist.ts";
 import "../provider/luogu/index.ts";
 import "../provider/pdf/index.ts";
 import "../provider/ai/index.ts";
@@ -53,7 +53,7 @@ const maintain = program
 
 maintain
     .command("watch")
-    .description("Compare problems/ against .mylearn/index/latest.json and update the snapshot (one-shot)")
+    .description("Compare problems/ (and notes/) against .mylearn/index/latest.json and update the snapshot (one-shot)")
     .action(() => {
         printDiff(watch(globalThis.projectRoot));
     });
@@ -114,7 +114,7 @@ program
             printDiff(diff);
         });
         console.log(
-            `daemon running (pid ${process.pid}); watching ${problemsDir(root)} — ctrl-c to stop`
+            `daemon running (pid ${process.pid}); watching ${problemsDir(root)} and ${notesDir(root)} — ctrl-c to stop`
         );
         process.on("SIGINT", () => {
             console.log("daemon stopped.");

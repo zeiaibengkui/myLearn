@@ -8,7 +8,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
-import { problemsDir } from "../utils/persist.ts";
+import { notesDir, problemsDir } from "../utils/persist.ts";
 
 export interface SnapshotFile {
     mtimeMs: number;
@@ -64,30 +64,46 @@ function fileHash(filePath: string): string {
     return crypto.createHash("sha256").update(fs.readFileSync(filePath)).digest("hex");
 }
 
-/** One-shot: compare problems/ with the snapshot, persist the new snapshot,
- *  and report what changed. Delegates rebuilding to the caller. */
+/** Watched roots: problems/ is required; notes/ (sibling) is included only
+ *  when present. Notes keys get a `notes/` prefix so problems keys stay as
+ *  legacy rel paths (no snapshot churn on rename). */
+function watchedRoots(root: string): { name: string; abs: string }[] {
+    const problems = problemsDir(root);
+    return [
+        { name: "problems", abs: problems },
+        ...(fs.existsSync(notesDir(root))
+            ? [{ name: "notes", abs: notesDir(root) }]
+            : []),
+    ];
+}
+
+/** One-shot: compare problems/ (and notes/) with the snapshot, persist the
+ *  new snapshot, and report what changed. Delegates rebuilding to the caller. */
 export function watch(root: string): NoteDiff {
-    const base = problemsDir(root);
-    if (!fs.existsSync(base)) {
-        throw new Error(`No problems directory: ${base}`);
+    const problems = problemsDir(root);
+    if (!fs.existsSync(problems)) {
+        throw new Error(`No problems directory: ${problems}`);
     }
     const snapshot = loadSnapshot(root);
     const next: NoteSnapshot = { updatedAt: Date.now(), files: {} };
     const diff: NoteDiff = { added: [], changed: [], removed: [] };
 
-    for (const rel of walkFiles(base).sort()) {
-        const abs = path.join(base, rel);
-        const stat = fs.statSync(abs);
-        const record = snapshot.files[rel];
-        if (!record) {
-            diff.added.push(rel);
-            next.files[rel] = { mtimeMs: stat.mtimeMs, hash: fileHash(abs) };
-        } else if (record.mtimeMs !== stat.mtimeMs) {
-            const hash = fileHash(abs);
-            if (hash !== record.hash) diff.changed.push(rel);
-            next.files[rel] = { mtimeMs: stat.mtimeMs, hash };
-        } else {
-            next.files[rel] = record;
+    for (const { name, abs } of watchedRoots(root)) {
+        for (const rel of walkFiles(abs).sort()) {
+            const key = name === "problems" ? rel : `${name}/${rel}`;
+            const fileAbs = path.join(abs, rel);
+            const stat = fs.statSync(fileAbs);
+            const record = snapshot.files[key];
+            if (!record) {
+                diff.added.push(key);
+                next.files[key] = { mtimeMs: stat.mtimeMs, hash: fileHash(fileAbs) };
+            } else if (record.mtimeMs !== stat.mtimeMs) {
+                const hash = fileHash(fileAbs);
+                if (hash !== record.hash) diff.changed.push(key);
+                next.files[key] = { mtimeMs: stat.mtimeMs, hash };
+            } else {
+                next.files[key] = record;
+            }
         }
     }
     for (const rel of Object.keys(snapshot.files)) {
@@ -98,14 +114,14 @@ export function watch(root: string): NoteDiff {
     return diff;
 }
 
-/** Continuous: fs.watch problems/ (debounced) and run watch() on each change.
- *  onChanges only fires when the diff is non-empty. Returns a stop() fn. */
+/** Continuous: fs.watch problems/ + notes/ (debounced) and run watch() on
+ *  each change. onChanges only fires when the diff is non-empty. Returns a
+ *  stop() fn. */
 export function watchContinuous(
     root: string,
     onChanges: (diff: NoteDiff) => void,
     debounceMs = 500
 ): () => void {
-    const base = problemsDir(root);
     let timer: ReturnType<typeof setTimeout> | undefined;
     const refresh = () => {
         const diff = watch(root);
@@ -113,9 +129,12 @@ export function watchContinuous(
             onChanges(diff);
         }
     };
-    const watcher = fs.watch(base, { recursive: true }, () => {
-        if (timer) clearTimeout(timer);
-        timer = setTimeout(refresh, debounceMs);
+    const watchers = watchedRoots(root).map(({ abs }) => {
+        const watcher = fs.watch(abs, { recursive: true }, () => {
+            if (timer) clearTimeout(timer);
+            timer = setTimeout(refresh, debounceMs);
+        });
+        return watcher;
     });
-    return () => watcher.close();
+    return () => watchers.forEach((w) => w.close());
 }

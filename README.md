@@ -86,12 +86,12 @@ the CLI refuses to start without `.mylearn/config.json` in its CWD.
 │   └── index/
 │       └── latest.json      # watcher snapshot: per-file mtime + sha256
 ├── problems/
-│   ├── notes/              # freeform notes without a problem; can be nested
 │   └── <category>/
 │       └── <title>/
 │           ├── problem.md   # frontmatter: title, category; body: description (samples as ```text blocks)
 │           ├── <solution>.md
 │           └── <source files>  # e.g. solution.cpp, imported PDFs
+├── notes/                   # freeform notes, sibling of problems/ (nestable)
 └── readme.md
 ```
 

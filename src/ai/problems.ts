@@ -1,7 +1,6 @@
-// Base knowledge-base accessors, shared by the AI provider CLI, the MCP
-// server and any provider that takes a -p <problem> parameter: turn a
-// problem spec (a note path or a pattern) into a note directory, list the
-// problemset, open a note.
+// Base knowledge-base accessors shared by every provider that takes a
+// -p <problem> parameter: turn a problem spec (a note path or a pattern)
+// into a note directory, list the problemset, open a note.
 //
 // The -p contract is: an explicit path (absolute, or relative to the CWD or
 // to `problems/`) points at a note dir; anything else is a pattern that must
@@ -21,7 +20,7 @@ export interface NoteInfo {
 }
 
 /** Every problem note: problems/<category>/<title dir>/problem.md.
- *  `problems/notes/` (nested freeform notes) has no problem.md → skipped. */
+ *  Freeform notes (the sibling `notes/` tree) have no problem.md → skipped. */
 export function listProblems(root: string): NoteInfo[] {
     const base = problemsDir(root);
     if (!fs.existsSync(base)) return [];
