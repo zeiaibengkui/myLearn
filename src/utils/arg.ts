@@ -40,14 +40,6 @@ program
     .action((dir: string) => {
         initProject(path.resolve(dir));
     });
-program
-    .command("build")
-    .description("Generate a static site (build/) from problems/ and notes/ — markdown rendered into notes.json + tree.json, Vue SPA (hash router) from frontend/")
-    .action(async () => {
-        const report = await buildSite(globalThis.projectRoot);
-        console.log(`built ${report.notes} note(s) → ${report.dir}`);
-    });
-
 function printDiff(diff: NoteDiff): void {
     for (const f of diff.added) console.log(`  [added]   ${f}`);
     for (const f of diff.changed) console.log(`  [changed] ${f}`);

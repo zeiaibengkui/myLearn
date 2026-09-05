@@ -88,35 +88,9 @@ describe("CLI (index.ts)", () => {
     test("exits 1 when there is no .mylearn/config.json", async () => {
         const root = tmpRoot();
         try {
-            const { code, stderr } = await runCLI(root, ["build"]);
+            const { code, stderr } = await runCLI(root, ["maintain", "watch"]);
             assert.equal(code, 1);
             assert.ok(stderr.includes("No config found."));
-        } finally {
-            fs.rmSync(root, { recursive: true, force: true });
-        }
-    });
-
-    test("build generates the site in the project's CWD", async () => {
-        const root = tmpRoot();
-        try {
-            seedProject(root);
-            const { code, stdout } = await runCLI(root, ["build"]);
-            assert.equal(code, 0);
-            assert.ok(stdout.includes("built 2 note(s) →"));
-            // the SPA shell (repo dev env has frontend/dist) is the entry
-            const index = fs.readFileSync(path.join(root, "build", "index.html"), "utf-8");
-            assert.ok(index.includes('<div id="app">'));
-            // note bodies live in notes.json — no per-note html pages
-            const entries = JSON.parse(
-                fs.readFileSync(path.join(root, "build", "notes.json"), "utf-8")
-            );
-            assert.equal(entries["problems/luogu/P4001"].title, "P4001");
-            assert.ok(!fs.existsSync(path.join(root, "build", "problems", "luogu", "P4001", "index.html")));
-            // tree.json is the shell-data contract
-            const treeJson = JSON.parse(
-                fs.readFileSync(path.join(root, "build", "tree.json"), "utf-8")
-            );
-            assert.equal(treeJson[0].title, "problems");
         } finally {
             fs.rmSync(root, { recursive: true, force: true });
         }
@@ -127,11 +101,11 @@ describe("CLI (index.ts)", () => {
         const elsewhere = tmpRoot();
         try {
             seedProject(root);
-            const { code } = await runCLI(elsewhere, ["build"], {
+            const { code } = await runCLI(elsewhere, ["maintain", "watch"], {
                 MYLEARN_PROJECT: root,
             });
             assert.equal(code, 0);
-            assert.ok(fs.existsSync(path.join(root, "build", "index.html")));
+            assert.ok(fs.existsSync(path.join(root, ".mylearn", "index", "latest.json")));
         } finally {
             fs.rmSync(root, { recursive: true, force: true });
             fs.rmSync(elsewhere, { recursive: true, force: true });

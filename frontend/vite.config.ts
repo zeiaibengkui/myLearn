@@ -3,7 +3,7 @@ import vue from "@vitejs/plugin-vue";
 import vueDevtools from "vite-plugin-vue-devtools";
 
 // The shell SPA. Built in two ways:
-//  - programmatically by the CLI (`myLearn build` / daemon) via
+//  - programmatically by the CLI (the daemon's start/rebuild path) via
 //    src/build/frontend.ts — the vite `build()` API with an optional outDir
 //    override for tests;
 //  - by hand: `pnpm run fe:build`.
