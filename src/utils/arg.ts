@@ -7,6 +7,7 @@ import path from "node:path";
 import { program } from "./program.ts";
 import initProject from "../project/init.ts";
 import { buildSite } from "../build/index.ts";
+import { buildServer } from "../build/server.ts";
 import { watch, watchContinuous, type NoteDiff } from "../maintain/watch.ts";
 import {
     maintain as maintainLuogu,
@@ -110,26 +111,49 @@ maintain
         process.exitCode = report.ok ? 0 : 1;
     });
 
-// the long-running watcher: the base for keeping the index fresh while
-// claude/codex sessions are connected (replaces the old `maintain watch --watch`)
+// the long-running daemon: watcher + builder + live preview. Rebuilds build/
+// on any change under problems/ or notes/ and pushes a reload to connected
+// browsers; serves the site over http so the shell's iframe injection works.
 program
     .command("daemon")
-    .description("Long-running watcher: keep .mylearn/index/latest.json fresh while it runs")
-    .action(() => {
+    .description("Watch + build + live server: rebuild build/ on change, serve it (default http://localhost:8000) and reload browsers")
+    .option("--port <port>", "live server port", "8000")
+    .action(async (options: { port: string }) => {
         const root = globalThis.projectRoot;
+        const report = buildSite(root);
+        console.log(`built ${report.pages} page(s) → ${report.dir}`);
+
+        const live = buildServer(report.dir);
+        const port = Number(options.port);
+        try {
+            await new Promise<void>((resolve, reject) => {
+                live.server.once("error", reject);
+                live.server.listen(port, "127.0.0.1", resolve);
+            });
+        } catch {
+            program.error(
+                `port ${port} is already in use — pick another: myLearn daemon --port <port>`
+            );
+        }
+
         printDiff(watch(root));
         const stop = watchContinuous(root, (diff) => {
             console.log(`[${new Date().toISOString()}] files changed:`);
             printDiff(diff);
+            const r = buildSite(root);
+            live.broadcast();
+            console.log(`rebuilt ${r.pages} page(s) — browsers reloading`);
         });
+
         console.log(
-            `daemon running (pid ${process.pid}); watching ${problemsDir(root)} and ${notesDir(root)} — ctrl-c to stop`
+            `daemon running (pid ${process.pid}) — serving http://localhost:${port}; watching ${problemsDir(root)} and ${notesDir(root)} — ctrl-c to stop`
         );
         process.on("SIGINT", () => {
             console.log("daemon stopped.");
             stop();
-            // no process.exit: closing the watcher empties the event loop and
-            // the process exits naturally, flushing stdout
+            live.close();
+            // no process.exit: closing the watcher + server empties the event
+            // loop and the process exits naturally, flushing stdout
         });
     });
 
