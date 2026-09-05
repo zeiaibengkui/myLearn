@@ -1,10 +1,9 @@
 # node
 node_modules/
 dist/
-# generated static site (root only — src/build/ is source)
-/build/
-# vite output for the shell SPA (frontend/ is source)
-frontend/dist/
+# VitePress output (.vitepress/dist) and its cache/temp
+.vitepress/cache/
+.vitepress/dist/
 coverage/
 .env
 .env.*

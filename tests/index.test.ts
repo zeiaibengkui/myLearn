@@ -1,13 +1,11 @@
 // CLI-level tests — spawn the real entry (`index.ts` via tsx) against a tmp
-// project, so the whole stack is exercised: startup config check, verbs
-// wired in arg.ts, and the daemon (serve + rebuild + SIGINT). Fully offline;
-// no CDN, no browser.
+// project, so the whole stack is exercised: startup config check and the
+// verbs wired in arg.ts. Fully offline; no CDN, no browser.
 
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
-import net from "node:net";
 import path from "node:path";
 import { spawn, type ChildProcess } from "node:child_process";
 
@@ -73,17 +71,6 @@ async function waitFor(cond: () => boolean, ms: number, label: string): Promise<
     throw new Error(`timeout waiting for: ${label}`);
 }
 
-function freePort(): Promise<number> {
-    return new Promise((resolve, reject) => {
-        const srv = net.createServer();
-        srv.on("error", reject);
-        srv.listen(0, "127.0.0.1", () => {
-            const port = (srv.address() as net.AddressInfo).port;
-            srv.close(() => resolve(port));
-        });
-    });
-}
-
 describe("CLI (index.ts)", () => {
     test("exits 1 when there is no .mylearn/config.json", async () => {
         const root = tmpRoot();
@@ -109,6 +96,26 @@ describe("CLI (index.ts)", () => {
         } finally {
             fs.rmSync(root, { recursive: true, force: true });
             fs.rmSync(elsewhere, { recursive: true, force: true });
+        }
+    });
+
+    test("site setup scaffolds .vitepress/ and the GitHub Pages bits", async () => {
+        const root = tmpRoot();
+        try {
+            seedProject(root);
+            const { code } = await runCLI(root, ["site", "setup", "--pages"]);
+            assert.equal(code, 0);
+            assert.ok(fs.existsSync(path.join(root, ".vitepress", "config.ts")));
+            assert.ok(fs.existsSync(path.join(root, ".github", "workflows", "site-pages.yml")));
+            assert.equal(
+                JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf-8")).name,
+                path.basename(root)
+            );
+            // idempotent second run
+            const again = await runCLI(root, ["site", "setup"]);
+            assert.equal(again.code, 0);
+        } finally {
+            fs.rmSync(root, { recursive: true, force: true });
         }
     });
 
@@ -142,66 +149,13 @@ describe("CLI (index.ts)", () => {
                 fs.readFileSync(path.join(target, ".mylearn", "config.json"), "utf-8"),
                 "{}"
             );
+            // new projects are site-ready
+            assert.ok(fs.existsSync(path.join(target, ".vitepress", "config.ts")));
+            assert.ok(fs.existsSync(path.join(target, ".vitepress", "sidebar.ts")));
         } finally {
             fs.rmSync(root, { recursive: true, force: true });
             fs.rmSync(target, { recursive: true, force: true });
         }
     });
 
-    test(
-        "daemon serves the site, rebuilds on change, and stops on SIGINT",
-        { timeout: 30_000 },
-        async () => {
-            const root = tmpRoot();
-            try {
-                seedProject(root);
-                const port = await freePort();
-                const child = spawn(TSX, [CLI, "daemon", "--port", String(port)], {
-                    cwd: root,
-                    env: { ...process.env, MYLEARN_PROJECT: "" },
-                });
-                const out = { stdout: "", stderr: "" };
-                child.stdout.on("data", (d: Buffer) => (out.stdout += d));
-                child.stderr.on("data", (d: Buffer) => (out.stderr += d));
-
-                try {
-                    await waitFor(() => out.stdout.includes("daemon running"), 10_000, "daemon banner");
-
-                    // serves the shell with the injected reload client
-                    const res = await fetch(`http://127.0.0.1:${port}/`);
-                    assert.equal(res.status, 200);
-                    assert.ok((await res.text()).includes("location.reload()"));
-
-                    // a change under notes/ triggers rebuild + broadcast log
-                    fs.writeFileSync(
-                        path.join(root, "notes", "trick.md"),
-                        "# Trick\n\nupdated body.\n"
-                    );
-                    await waitFor(() => out.stdout.includes("rebuilt 2 note(s)"), 10_000, "rebuild log");
-
-                    const fresh = await fetch(`http://127.0.0.1:${port}/notes.json`);
-                    const entries = JSON.parse(await fresh.text());
-                    assert.ok(entries["notes/trick"].html.includes("updated body."));
-
-                    // SIGINT: handlers close watcher + server → natural exit 0
-                    const closed = new Promise<number | null>((resolve) =>
-                        child.on("close", resolve)
-                    );
-                    child.kill("SIGINT");
-                    const code = await Promise.race([
-                        closed,
-                        new Promise<never>((_, reject) =>
-                            setTimeout(() => reject(new Error("daemon did not exit after SIGINT")), 10_000)
-                        ),
-                    ]);
-                    assert.equal(code, 0);
-                    assert.ok(out.stdout.includes("daemon stopped."));
-                } finally {
-                    if (child.exitCode === null) child.kill("SIGKILL");
-                }
-            } finally {
-                fs.rmSync(root, { recursive: true, force: true });
-            }
-        }
-    );
 });

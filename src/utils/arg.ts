@@ -3,22 +3,18 @@
 // registers its commands on the shared global program (side effect):
 // `import "../provider/luogu/index.ts"` gives `myLearn luogu fetch ...`.
 
-import fs from "node:fs";
 import path from "node:path";
 import { program } from "./program.ts";
 import initProject from "../project/init.ts";
-import { buildSite } from "../build/index.ts";
-import { buildServer } from "../build/server.ts";
-import { frontendDir } from "../build/frontend.ts";
-import { watch, watchContinuous, type NoteDiff } from "../maintain/watch.ts";
+import { watch, type NoteDiff } from "../maintain/watch.ts";
 import {
     maintain as maintainLuogu,
 } from "../provider/luogu/maintain.ts";
 import { openNote, resolveNote } from "../ai/problems.ts";
-import { notesDir, problemsDir } from "./persist.ts";
 import "../provider/luogu/index.ts";
 import "../provider/pdf/index.ts";
 import "../provider/ai/index.ts";
+import "../site/index.ts";
 
 program
     .name("myLearn")
@@ -105,90 +101,6 @@ maintain
         process.exitCode = report.ok ? 0 : 1;
     });
 
-// the long-running daemon: watcher + builder + live preview. Rebuilds build/
-// on any change under problems/, notes/ (and under frontend/ — the SPA
-// sources) and pushes a reload to connected browsers.
-program
-    .command("daemon")
-    .description("Watch + build + live server: rebuild build/ on change, serve it (default http://localhost:8000) and reload browsers")
-    .option("--port <port>", "live server port", "8000")
-    .action(async (options: { port: string }) => {
-        const root = globalThis.projectRoot;
-        const report = await buildSite(root);
-        console.log(`built ${report.notes} note(s) → ${report.dir}`);
-
-        const live = buildServer(report.dir);
-        const port = Number(options.port);
-        try {
-            await new Promise<void>((resolve, reject) => {
-                live.server.once("error", reject);
-                live.server.listen(port, "127.0.0.1", resolve);
-            });
-        } catch {
-            program.error(
-                `port ${port} is already in use — pick another: myLearn daemon --port <port>`
-            );
-        }
-
-        printDiff(watch(root));
-
-        // rebuilds are serialized: buildSite rm -rf's build/, so triggering
-        // watches (content + frontend) must never interleave
-        let rebuilding = Promise.resolve();
-        const rebuild = (cause: string) => {
-            rebuilding = rebuilding
-                .then(async () => {
-                    const r = await buildSite(root);
-                    live.broadcast();
-                    console.log(`rebuilt ${r.notes} note(s) — browsers reloading (${cause})`);
-                })
-                .catch((err: unknown) =>
-                    console.error(`rebuild failed: ${err instanceof Error ? err.message : err}`)
-                );
-        };
-
-        const stopContent = watchContinuous(root, (diff) => {
-            console.log(`[${new Date().toISOString()}] files changed:`);
-            printDiff(diff);
-            rebuild("content");
-        });
-        const stopFrontend = watchFrontend(frontendDir(), () => {
-            console.log(`[${new Date().toISOString()}] frontend changed — rebuilding`);
-            rebuild("frontend");
-        });
-
-        console.log(
-            `daemon running (pid ${process.pid}) — serving http://localhost:${port}; watching ${problemsDir(root)}, ${notesDir(root)} and ${frontendDir()} — ctrl-c to stop`
-        );
-        process.on("SIGINT", () => {
-            console.log("daemon stopped.");
-            stopContent();
-            stopFrontend();
-            live.close();
-            // no process.exit: closing the watcher + server empties the event
-            // loop and the process exits naturally, flushing stdout
-        });
-    });
-
-/** watch the SPA sources (frontend/) so shell edits rebuild + reload too.
- *  These changes are NOT part of the problems/notes snapshot — latest.json
- *  stays content-only. */
-function watchFrontend(
-    feDir: string,
-    onChange: () => void,
-    debounceMs = 500
-): () => void {
-    const targets = ["src", "index.html", "vite.config.ts"]
-        .map((rel) => path.join(feDir, rel))
-        .filter((t) => fs.existsSync(t));
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const watchers = targets.map((t) =>
-        fs.watch(t, { recursive: true }, () => {
-            if (timer) clearTimeout(timer);
-            timer = setTimeout(onChange, debounceMs);
-        })
-    );
-    return () => watchers.forEach((w) => w.close());
-}
-
+// site provider registers `site setup|dev|build|preview` (VitePress) —
+// imported at the top of this file, no local code.
 await program.parseAsync();

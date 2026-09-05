@@ -1,0 +1,8 @@
+/* myLearn theme tweaks on top of the VitePress default theme.
+   Note bodies are competitive-programming notes — keep sample blocks
+   monospaced and roomy. */
+
+/* sample `### 样例` text blocks */
+.vp-doc pre {
+    border-radius: 8px;
+}

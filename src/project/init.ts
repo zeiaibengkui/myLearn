@@ -1,5 +1,6 @@
 import path from "node:path";
 import fs from "node:fs";
+import { scaffoldSite } from "../site/setup.ts";
 type RecursiveRecord = {
     [key: string]: string | RecursiveRecord;
 };
@@ -51,4 +52,7 @@ function genPath(tree: ProjectTree, root: string) {
 export default function initProject(path: string) {
     console.log("init project at", path);
     genPath(tree, path);
+    // new projects are site-ready: .vitepress/ scaffold (VitePress renders
+    // the markdown in place — re-run `site setup` to refresh the templates)
+    scaffoldSite(path);
 }

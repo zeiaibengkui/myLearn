@@ -113,28 +113,3 @@ export function watch(root: string): NoteDiff {
     saveSnapshot(root, next);
     return diff;
 }
-
-/** Continuous: fs.watch problems/ + notes/ (debounced) and run watch() on
- *  each change. onChanges only fires when the diff is non-empty. Returns a
- *  stop() fn. */
-export function watchContinuous(
-    root: string,
-    onChanges: (diff: NoteDiff) => void,
-    debounceMs = 500
-): () => void {
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const refresh = () => {
-        const diff = watch(root);
-        if (diff.added.length || diff.changed.length || diff.removed.length) {
-            onChanges(diff);
-        }
-    };
-    const watchers = watchedRoots(root).map(({ abs }) => {
-        const watcher = fs.watch(abs, { recursive: true }, () => {
-            if (timer) clearTimeout(timer);
-            timer = setTimeout(refresh, debounceMs);
-        });
-        return watcher;
-    });
-    return () => watchers.forEach((w) => w.close());
-}
