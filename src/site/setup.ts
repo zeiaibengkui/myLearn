@@ -93,6 +93,12 @@ export function scaffoldSite(root: string, options: ScaffoldOptions = {}): void 
         for (const f of written) console.log(`  + ${f}`);
     }
     if (skipped.length) console.log(`kept existing: ${skipped.join(", ")}`);
+    if (pages && !fs.existsSync(path.join(root, "pnpm-lock.yaml"))) {
+        console.log(
+            `\nTip: commit a lockfile — CI's setup-node cache errors without it:\n` +
+                `  cd ${root} && pnpm install --lockfile-only\n`
+        );
+    }
     if (!vitepressReachable(root)) {
         console.log(
             `\nvitepress is not installed for this project — run:\n` +

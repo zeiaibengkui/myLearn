@@ -155,7 +155,9 @@ repo, then Settings → Pages → Source: *GitHub Actions*. Every push to main (
 manual runs) rebuilds and deploys `.vitepress/dist`; the workflow sets
 `MYLEARN_BASE: /<repo>/` (a `<user>.github.io` repo is normalized to `/` by the
 scaffolded config). The repo needs the scaffolded `package.json` (scripts +
-vitepress devDeps + the pnpm pin) — CI has no access to the myLearn repo.
+vitepress devDeps + the pnpm pin) — CI has no access to the myLearn repo. Also
+commit a `pnpm-lock.yaml` (generate with `pnpm install --lockfile-only`; the
+workflow's `setup-node` cache step errors without it — `site setup` reminds you).
 
 All process invocation uses `execFile`/`spawn` (no shell) and path segments are
 sanitized, so web-sourced titles can't escape the `problems/` tree.
