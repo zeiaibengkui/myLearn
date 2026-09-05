@@ -189,6 +189,19 @@ describe("vitepress build (e2e)", () => {
                 assert.ok(home.includes(`${base}assets/`));
                 assert.ok(!fs.existsSync(path.join(dist, ".mylearn")));
 
+                // SEO: html lang, canonical + og on every page
+                assert.ok(home.includes('lang="zh-CN"'));
+                assert.ok(home.includes('<link rel="canonical" href="https://example.com/e2e/"'));
+                assert.ok(home.includes('property="og:title"'));
+                // sitemap + robots only when MYLEARN_SITE_URL is set
+                const sitemap = fs.readFileSync(path.join(dist, "sitemap.xml"), "utf-8");
+                assert.ok(sitemap.includes("https://example.com/e2e/problems/luogu/P4001/"));
+                assert.match(
+                    fs.readFileSync(path.join(dist, "robots.txt"), "utf-8"),
+                    /Sitemap: https:\/\/example\.com\/e2e\/sitemap\.xml/
+                );
+                assert.ok(!sitemap.includes("example.com/e2e/404/"));
+
                 // problem page: content + math + sidebar link + breadcrumb
                 const page = fs.readFileSync(
                     path.join(dist, "problems", "luogu", "P4001", "index.html"),
@@ -224,7 +237,13 @@ function build(root: string): Promise<number> {
     return new Promise((resolve, reject) => {
         const child = spawn(process.execPath, [vitepressBin(), "build", "."], {
             cwd: root,
-            env: { ...process.env, MYLEARN_BASE: "/e2e/" },
+            env: {
+                ...process.env,
+                MYLEARN_BASE: "/e2e/",
+                // canonical/og/sitemap/robots are produced when this is set
+                MYLEARN_SITE_URL: "https://example.com",
+                MYLEARN_LANG: "zh-CN",
+            },
             stdio: ["ignore", "ignore", "pipe"],
         });
         let stderr = "";

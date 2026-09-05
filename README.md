@@ -146,7 +146,9 @@ the CLI refuses to start without `.mylearn/config.json` in its CWD.
   titles, `notes/` recursed); `markdown: { math: true }` renders math
   server-side (markdown-it-mathjax3); a `buildEnd` hook mirrors non-markdown
   files (solution sources, PDFs) from `problems/` into the output so hosted
-  pages keep them downloadable.
+  pages keep them downloadable. SEO is opt-in: `MYLEARN_SITE_URL` (canonical
+  origin) adds per-page canonical + og tags and writes `sitemap.xml` +
+  `robots.txt`, `MYLEARN_LANG` sets `<html lang>` (default `en-US`).
 
 ## Publish to GitHub Pages
 
@@ -154,12 +156,13 @@ the CLI refuses to start without `.mylearn/config.json` in its CWD.
 repo, then Settings → Pages → Source: *GitHub Actions*. Every push to main (and
 manual runs) rebuilds and deploys `.vitepress/dist`; the workflow sets
 `MYLEARN_BASE: /<repo>/` (a `<user>.github.io` repo is normalized to `/` by the
-scaffolded config). The repo needs the scaffolded `package.json` (scripts +
-vitepress devDeps + the pnpm pin) and `pnpm-workspace.yaml` (esbuild
-allowlist — pnpm 11 blocks its build script otherwise) — CI has no access to
-the myLearn repo. Also
-commit a `pnpm-lock.yaml` (generate with `pnpm install --lockfile-only`; the
-workflow's `setup-node` cache step errors without it — `site setup` reminds you).
+scaffolded config), and you can add `MYLEARN_SITE_URL` + `MYLEARN_LANG` to its
+build step for the SEO extras (canonical/og, sitemap/robots, `html lang`). The
+repo needs the scaffolded `package.json` (scripts + vitepress devDeps + the
+pnpm pin) and `pnpm-workspace.yaml` (esbuild allowlist — pnpm 11 blocks its
+build script otherwise) — CI has no access to the myLearn repo. Also commit a
+`pnpm-lock.yaml` (generate with `pnpm install --lockfile-only`; the workflow's
+`setup-node` cache step errors without it — `site setup` reminds you).
 
 All process invocation uses `execFile`/`spawn` (no shell) and path segments are
 sanitized, so web-sourced titles can't escape the `problems/` tree.

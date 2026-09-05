@@ -123,5 +123,10 @@ them).
   because CI has no access to the myLearn repo.
   Commit a `pnpm-lock.yaml` too (`pnpm install --lockfile-only`): the
   workflow's setup-node cache errors without it.
+- SEO is opt-in: set `MYLEARN_SITE_URL` (canonical origin, e.g.
+  `https://chunl.ai`) and `MYLEARN_LANG` (e.g. `zh-CN`) when building —
+  the config then emits canonical + og tags per page and writes
+  `sitemap.xml` + `robots.txt` (and `<html lang>`). Add both env vars to
+  the workflow's build step (`site setup --pages` leaves them as comments).
 - Verifying your own work: `pnpm exec tsc --noEmit` and `pnpm test` (from the
   myLearn repo, not the project).
