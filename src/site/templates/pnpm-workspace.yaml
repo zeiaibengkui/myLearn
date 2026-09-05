@@ -1,0 +1,5 @@
+# pnpm 11 blocks dependency build scripts by default — esbuild's postinstall
+# is needed by vitepress (vite), and without the allowlist `pnpm install`
+# fails with ERR_PNPM_IGNORED_BUILDS (also in the GitHub Actions workflow).
+allowBuilds:
+  esbuild: true

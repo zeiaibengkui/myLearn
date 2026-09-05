@@ -126,6 +126,10 @@ describe("scaffoldSite", () => {
             assert.equal(pkg.type, "module");
             assert.ok(pkg.devDependencies.vitepress);
             assert.ok(pkg.packageManager?.startsWith("pnpm@"), "pnpm pinned for action-setup");
+            // pnpm 11 blocks build scripts; esbuild's postinstall is required
+            const ws = fs.readFileSync(path.join(root, "pnpm-workspace.yaml"), "utf-8");
+            assert.ok(ws.includes("allowBuilds"));
+            assert.ok(ws.includes("esbuild"));
             assert.ok(fs.existsSync(path.join(root, ".github", "workflows", "site-pages.yml")));
 
             const wf = fs.readFileSync(path.join(root, ".github", "workflows", "site-pages.yml"), "utf-8");

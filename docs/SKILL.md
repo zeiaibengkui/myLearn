@@ -119,7 +119,8 @@ them).
 - GitHub Pages: the site lives under `/<repo>/` on repo sites (`MYLEARN_BASE`
   in the workflow); a `<user>.github.io` repo is normalized to `/`. In repo
   Settings → Pages, choose Source *GitHub Actions* — and the repo needs its
-  scaffolded `package.json`, because CI has no access to the myLearn repo.
+  scaffolded `package.json` + `pnpm-workspace.yaml` (esbuild allowlist),
+  because CI has no access to the myLearn repo.
   Commit a `pnpm-lock.yaml` too (`pnpm install --lockfile-only`): the
   workflow's setup-node cache errors without it.
 - Verifying your own work: `pnpm exec tsc --noEmit` and `pnpm test` (from the

@@ -38,7 +38,8 @@ function templateFiles(): string[] {
 
 /** template rel → destination rel in the project (undefined = pages-only/not copied) */
 function destFor(rel: string): string | undefined {
-    if (rel === "package.json" || rel === "workflows/site-pages.yml") return undefined;
+    if (rel === "package.json" || rel === "pnpm-workspace.yaml" || rel === "workflows/site-pages.yml")
+        return undefined;
     return `.vitepress/${rel}`; // config.ts, sidebar.ts, theme/*
 }
 
@@ -81,6 +82,10 @@ export function scaffoldSite(root: string, options: ScaffoldOptions = {}): void 
             fs
                 .readFileSync(templatePath("package.json"), "utf-8")
                 .replace("{{name}}", path.basename(path.resolve(root)))
+        );
+        write(
+            "pnpm-workspace.yaml",
+            fs.readFileSync(templatePath("pnpm-workspace.yaml"), "utf-8")
         );
         write(
             path.join(".github", "workflows", "site-pages.yml"),
