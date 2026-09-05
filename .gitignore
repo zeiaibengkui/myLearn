@@ -3,6 +3,8 @@ node_modules/
 dist/
 # generated static site (root only — src/build/ is source)
 /build/
+# vite output for the shell SPA (frontend/ is source)
+frontend/dist/
 coverage/
 .env
 .env.*

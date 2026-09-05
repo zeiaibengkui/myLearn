@@ -45,7 +45,9 @@ function seedProject(root: string): void {
 async function startServer(): Promise<{ live: LiveServer; base: string; stop: () => void }> {
     const root = tmpRoot();
     seedProject(root);
-    const report = buildSite(root);
+    // useFrontend: false → the h.ts fallback shell (deterministic; the
+    // SPA-index.html path is covered by tests/frontend.test.ts)
+    const report = await buildSite(root, { useFrontend: false });
     const live = buildServer(report.dir);
     await new Promise<void>(resolve =>
         live.server.listen(0, "127.0.0.1", resolve)

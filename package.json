@@ -4,7 +4,8 @@
     "description": "",
     "main": "index.js",
     "scripts": {
-        "test": "tsx --test tests/fetch.test.ts tests/maintain.test.ts tests/ai.test.ts tests/build.test.ts tests/server.test.ts tests/index.test.ts",
+        "test": "tsx --test tests/fetch.test.ts tests/maintain.test.ts tests/ai.test.ts tests/build.test.ts tests/server.test.ts tests/index.test.ts tests/frontend.test.ts",
+        "fe:build": "vite build frontend",
         "run": "pnpx tsx index.ts"
     },
     "keywords": [],
@@ -30,7 +31,12 @@
     "devDependencies": {
         "@types/markdown-it": "^14.2.0",
         "@types/node": "^26.3.0",
+        "@vitejs/plugin-vue": "^6.0.8",
+        "bootstrap": "^5.3.8",
+        "bootstrap-vue-next": "^1.1.0",
         "tsx": "^4.23.12",
-        "typescript": "^7.0.2"
+        "typescript": "^7.0.2",
+        "vite": "^8.2.2",
+        "vue": "^3.5.42"
     }
 }

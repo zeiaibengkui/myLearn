@@ -25,6 +25,13 @@ import {
     problemTree,
     type ShellNode,
 } from "./components/tree.ts";
+import {
+    buildFrontend,
+    copyDist,
+    distDir,
+    frontendDir,
+    needsBuild,
+} from "./frontend.ts";
 import { renderMarkdown, seoDescription } from "./markdown.ts";
 import { hrefFor, noteTitle, walkFiles } from "./util.ts";
 import { listProblems } from "../ai/problems.ts";
@@ -42,6 +49,15 @@ export interface BuildReport {
     dir: string;
     /** content pages written (the index.html shell is not counted) */
     pages: number;
+}
+
+export interface BuildOptions {
+    /** false → render the h.ts fallback shell even when frontend/dist
+     *  exists (tests); true (default) → SPA when built, fallback otherwise */
+    useFrontend?: boolean;
+    /** where the SPA was built to (default frontend/dist) — tests build
+     *  into an isolated dir so they never touch the repo artifact */
+    feOutDir?: string;
 }
 
 export { seoDescription };
@@ -113,11 +129,24 @@ function buildFreeformNotes(root: string, outRoot: string): number {
     return pages;
 }
 
+function shellMarkup(tree: ShellNode[]): Node {
+    return h(Shell, {
+        tree: countLeaves(tree) ? h(Tree, { nodes: tree }) : null,
+        first: firstLeaf(tree),
+    });
+}
+
 /**
  * Generate the static site. Regenerates build/ from scratch (the directory
- * is removed first, so a deleted note disappears from the site).
+ * is removed first, so a deleted note disappears from the site). build/
+ * index.html is the shell: the Vue SPA (frontend/dist, see frontend.ts) when
+ * it is built, otherwise the h.ts fallback shell; build/tree.json carries the
+ * same tree the SPA renders, fetched by the browser at runtime.
  */
-export function buildSite(root: string): BuildReport {
+export async function buildSite(
+    root: string,
+    opts: BuildOptions = {}
+): Promise<BuildReport> {
     const outRoot = path.join(root, "build");
     fs.rmSync(outRoot, { recursive: true, force: true });
     fs.mkdirSync(outRoot, { recursive: true });
@@ -130,10 +159,28 @@ export function buildSite(root: string): BuildReport {
     const problems = problemTree(root);
     if (problems.length) tree.push({ title: "problems", children: problems });
     tree.push(...notesTree(root));
+    fs.writeFileSync(path.join(outRoot, "tree.json"), JSON.stringify(tree));
 
-    writeSite(path.join(outRoot, "index.html"), h(Shell, {
-        tree: countLeaves(tree) ? h(Tree, { nodes: tree }) : null,
-        first: firstLeaf(tree),
-    }));
+    if (opts.useFrontend ?? true) {
+        const feDir = frontendDir();
+        try {
+            if (needsBuild(feDir, opts.feOutDir)) {
+                await buildFrontend(feDir, opts.feOutDir);
+            }
+        } catch (err) {
+            // no vite (fresh clone) or a build failure — the fallback shell
+            // below still produces a working site
+            console.error(
+                `frontend build skipped: ${err instanceof Error ? err.message : err}`
+            );
+        }
+        if (fs.existsSync(path.join(distDir(feDir, opts.feOutDir), "index.html"))) {
+            copyDist(feDir, outRoot, opts.feOutDir);
+        } else {
+            writeSite(path.join(outRoot, "index.html"), shellMarkup(tree));
+        }
+    } else {
+        writeSite(path.join(outRoot, "index.html"), shellMarkup(tree));
+    }
     return { dir: outRoot, pages };
 }

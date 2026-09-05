@@ -12,6 +12,9 @@
         "skipLibCheck": true
     },
     "exclude": [
-        "node_modules"
+        "node_modules",
+        // the Vue SPA has its own tsconfig (DOM lib, bundler resolution) —
+        // this one is the CLI's nodenext/node world
+        "frontend"
     ]
 }

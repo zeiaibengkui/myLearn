@@ -103,9 +103,15 @@ describe("CLI (index.ts)", () => {
             const { code, stdout } = await runCLI(root, ["build"]);
             assert.equal(code, 0);
             assert.ok(stdout.includes("built 2 page(s) →"));
+            // the shell is the SPA when frontend/dist is present (repo dev
+            // env), else the h.ts fallback — both include the codebase
             const index = fs.readFileSync(path.join(root, "build", "index.html"), "utf-8");
-            assert.ok(index.includes("<iframe"));
-            assert.ok(index.includes("problems/luogu/P4001/index.html"));
+            assert.ok(index.includes('<div id="app">') || index.includes("<iframe"));
+            // tree.json is the shell-data contract either way
+            const treeJson = JSON.parse(
+                fs.readFileSync(path.join(root, "build", "tree.json"), "utf-8")
+            );
+            assert.equal(treeJson[0].title, "problems");
             const page = fs.readFileSync(
                 path.join(root, "build", "problems", "luogu", "P4001", "index.html"),
                 "utf-8"

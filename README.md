@@ -37,7 +37,7 @@ myLearn pdf import <file> -c category       # import a local PDF as a note
 myLearn ai "<prompt>" [-p <problem>]        # hand the prompt (plus note, with -p) to codex
 myLearn maintain watch                      # diff problems/ against the index snapshot (one-shot)
 myLearn maintain luogu -p <problem>         # revalidate the solution files stored in a note
-myLearn daemon                              # watcher that keeps the index snapshot fresh
+myLearn daemon                              # watch + rebuild + live-reload server (Ctrl-C stops)
 ```
 
 Every command runs as `pnpx tsx index.ts <command>` — from the project root of the
@@ -59,8 +59,8 @@ pnpx tsx /path/to/myLearn/index.ts maintain luogu -p P4001            # re-runs 
 pnpx tsx /path/to/myLearn/index.ts maintain watch                     # what changed since the last snapshot (.mylearn/index/latest.json)
 pnpx tsx /path/to/myLearn/index.ts pdf import notes.pdf -c course     # import a local PDF via markitdown
 pnpx tsx /path/to/myLearn/index.ts ai "Solve this problem." -p P4001  # paste-ready prompt bundle (no API call)
-pnpx tsx /path/to/myLearn/index.ts daemon                             # keep the index snapshot fresh (Ctrl-C stops)
-pnpx tsx /path/to/myLearn/index.ts build                              # static site into build/ (markdown-it + katex, bootstrap/jquery CDN + iframe)
+pnpx tsx /path/to/myLearn/index.ts daemon                             # watch + rebuild + live-reload server (Ctrl-C stops)
+pnpx tsx /path/to/myLearn/index.ts build                              # static site into build/ (markdown-it + katex; Vue SPA shell from frontend/)
 ```
 
 ### AI

@@ -69,11 +69,13 @@ describe("seoDescription", () => {
 });
 
 describe("build", () => {
-    test("builds a complete site shell + pages", () => {
+    test("builds a complete site shell + pages", async () => {
         const root = tmpRoot();
         try {
             seedProject(root);
-            const report = buildSite(root);
+            // useFrontend: false → the deterministic h.ts fallback shell
+            // (the SPA path is covered by tests/frontend.test.ts)
+            const report = await buildSite(root, { useFrontend: false });
             assert.ok(report.dir.endsWith(path.join("build")));
             assert.equal(report.pages, 3); // P4001 page + solution page + trick note
 
@@ -136,6 +138,17 @@ describe("build", () => {
             assert.ok(page.includes('class="header-anchor"'));
             assert.ok(page.includes('aria-hidden="true"'));
 
+            // tree.json — the tree contract the Vue shell fetches (same
+            // structure the fallback shell renders, both modes write it)
+            const treeJson = JSON.parse(
+                fs.readFileSync(path.join(root, "build", "tree.json"), "utf-8")
+            );
+            assert.equal(treeJson[0].title, "problems");
+            const luogu = treeJson[0].children.find((c: { title: string }) => c.title === "luogu");
+            assert.equal(luogu.children[0].title, "P4001");
+            assert.ok(luogu.children[0].href.endsWith("index.html"));
+            assert.ok(treeJson.some((n: { title: string }) => n.title === "notes"));
+
             // solution page + copied source
             assert.ok(
                 fs.existsSync(path.join(root, "build", "problems", "luogu", "P4001", "P4001 题解.html"))
@@ -154,13 +167,13 @@ describe("build", () => {
         }
     });
 
-    test("rebuild removes stale pages", () => {
+    test("rebuild removes stale pages", async () => {
         const root = tmpRoot();
         try {
             seedProject(root);
-            buildSite(root);
+            await buildSite(root, { useFrontend: false });
             fs.rmSync(path.join(root, "problems", "luogu", "P4001"), { recursive: true });
-            const report = buildSite(root);
+            const report = await buildSite(root, { useFrontend: false });
             assert.equal(report.pages, 1);
             assert.ok(!fs.existsSync(path.join(root, "build", "problems", "luogu", "P4001")));
             const index = fs.readFileSync(path.join(root, "build", "index.html"), "utf-8");
@@ -170,10 +183,10 @@ describe("build", () => {
         }
     });
 
-    test("empty project still builds a shell, 0 pages", () => {
+    test("empty project still builds a shell, 0 pages", async () => {
         const root = tmpRoot();
         try {
-            const report = buildSite(root);
+            const report = await buildSite(root, { useFrontend: false });
             assert.equal(report.pages, 0);
             assert.ok(fs.existsSync(path.join(root, "build", "index.html")));
         } finally {

@@ -3,11 +3,13 @@
 // registers its commands on the shared global program (side effect):
 // `import "../provider/luogu/index.ts"` gives `myLearn luogu fetch ...`.
 
+import fs from "node:fs";
 import path from "node:path";
 import { program } from "./program.ts";
 import initProject from "../project/init.ts";
 import { buildSite } from "../build/index.ts";
 import { buildServer } from "../build/server.ts";
+import { frontendDir } from "../build/frontend.ts";
 import { watch, watchContinuous, type NoteDiff } from "../maintain/watch.ts";
 import {
     maintain as maintainLuogu,
@@ -40,9 +42,9 @@ program
     });
 program
     .command("build")
-    .description("Generate a static site (build/) from problems/ and notes/ — markdown-it + katex, bootstrap/jquery CDN, iframe shell")
-    .action(() => {
-        const report = buildSite(globalThis.projectRoot);
+    .description("Generate a static site (build/) from problems/ and notes/ — markdown-it + katex, SPA shell (Vue + BootstrapVueNext) from frontend/, h.ts fallback without it")
+    .action(async () => {
+        const report = await buildSite(globalThis.projectRoot);
         console.log(`built ${report.pages} page(s) → ${report.dir}`);
     });
 
@@ -112,15 +114,16 @@ maintain
     });
 
 // the long-running daemon: watcher + builder + live preview. Rebuilds build/
-// on any change under problems/ or notes/ and pushes a reload to connected
-// browsers; serves the site over http so the shell's iframe injection works.
+// on any change under problems/ or notes/ (and under frontend/ — the SPA
+// shell sources) and pushes a reload to connected browsers; serves the site
+// over http so the shell's iframe injection works.
 program
     .command("daemon")
     .description("Watch + build + live server: rebuild build/ on change, serve it (default http://localhost:8000) and reload browsers")
     .option("--port <port>", "live server port", "8000")
     .action(async (options: { port: string }) => {
         const root = globalThis.projectRoot;
-        const report = buildSite(root);
+        const report = await buildSite(root);
         console.log(`built ${report.pages} page(s) → ${report.dir}`);
 
         const live = buildServer(report.dir);
@@ -137,24 +140,64 @@ program
         }
 
         printDiff(watch(root));
-        const stop = watchContinuous(root, (diff) => {
+
+        // rebuilds are serialized: buildSite rm -rf's build/, so triggering
+        // watches (content + frontend) must never interleave
+        let rebuilding = Promise.resolve();
+        const rebuild = (cause: string) => {
+            rebuilding = rebuilding
+                .then(async () => {
+                    const r = await buildSite(root);
+                    live.broadcast();
+                    console.log(`rebuilt ${r.pages} page(s) — browsers reloading (${cause})`);
+                })
+                .catch((err: unknown) =>
+                    console.error(`rebuild failed: ${err instanceof Error ? err.message : err}`)
+                );
+        };
+
+        const stopContent = watchContinuous(root, (diff) => {
             console.log(`[${new Date().toISOString()}] files changed:`);
             printDiff(diff);
-            const r = buildSite(root);
-            live.broadcast();
-            console.log(`rebuilt ${r.pages} page(s) — browsers reloading`);
+            rebuild("content");
+        });
+        const stopFrontend = watchFrontend(frontendDir(), () => {
+            console.log(`[${new Date().toISOString()}] frontend changed — rebuilding`);
+            rebuild("frontend");
         });
 
         console.log(
-            `daemon running (pid ${process.pid}) — serving http://localhost:${port}; watching ${problemsDir(root)} and ${notesDir(root)} — ctrl-c to stop`
+            `daemon running (pid ${process.pid}) — serving http://localhost:${port}; watching ${problemsDir(root)}, ${notesDir(root)} and ${frontendDir()} — ctrl-c to stop`
         );
         process.on("SIGINT", () => {
             console.log("daemon stopped.");
-            stop();
+            stopContent();
+            stopFrontend();
             live.close();
             // no process.exit: closing the watcher + server empties the event
             // loop and the process exits naturally, flushing stdout
         });
     });
+
+/** watch the SPA sources (frontend/) so shell edits rebuild + reload too.
+ *  These changes are NOT part of the problems/notes snapshot — latest.json
+ *  stays content-only. */
+function watchFrontend(
+    feDir: string,
+    onChange: () => void,
+    debounceMs = 500
+): () => void {
+    const targets = ["src", "index.html", "vite.config.ts"]
+        .map((rel) => path.join(feDir, rel))
+        .filter((t) => fs.existsSync(t));
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const watchers = targets.map((t) =>
+        fs.watch(t, { recursive: true }, () => {
+            if (timer) clearTimeout(timer);
+            timer = setTimeout(onChange, debounceMs);
+        })
+    );
+    return () => watchers.forEach((w) => w.close());
+}
 
 await program.parseAsync();
