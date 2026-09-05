@@ -99,15 +99,16 @@ function notesItems(root: string, dir: string): SidebarItem[] {
     return items;
 }
 
-/** VitePress sidebar config: the "/" fallback (home) plus per-section keys */
+/**
+ * VitePress sidebar config: ONE "/" key with the combined tree, so both
+ * sections are visible on every route (problems pages / notes pages / home) —
+ * with per-section keys VitePress scopes a page to its section and the other
+ * one disappears.
+ */
 export function buildSidebar(root: string): Record<string, SidebarItem[]> {
     const problems = problemItems(root, root);
     const notes = notesItems(root, path.join(root, "notes"));
-    return {
-        "/": [...problems, ...notes],
-        "/problems/": problems,
-        "/notes/": notes,
-    };
+    return { "/": [...problems, ...notes] };
 }
 
 /** source file → route: index.md/problem.md resolve to their dir ("/x/y/") */

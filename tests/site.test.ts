@@ -42,13 +42,14 @@ describe("buildSidebar", () => {
 
             const sidebar = buildSidebar(root);
 
-            // problems: categories sorted, titles from frontmatter, dir fallback
-            const problems = sidebar["/problems/"];
+            // one combined tree on "/": problems (categories) then notes —
+            // a single key means BOTH sections show up on every route
+            const items = sidebar["/"];
             assert.deepEqual(
-                problems.map((i) => i.text),
+                items.slice(0, 2).map((i) => i.text),
                 ["atcoder", "luogu"]
             );
-            const [arc, luogu] = problems;
+            const [arc, luogu] = items;
             assert.equal(arc.items?.[0].text, "Arc101"); // no frontmatter → dir name
             assert.equal(arc.items?.[0].link, "/problems/atcoder/Arc101/Arc101");
             assert.equal(luogu.items?.[0].text, "P4001"); // frontmatter title
@@ -59,8 +60,7 @@ describe("buildSidebar", () => {
             assert.ok(!luogu.items?.some((i) => i.text === "readme"));
 
             // notes: nested freeform tree; index.md collapses to its dir
-            const notes = sidebar["/notes/"];
-            const algos = notes.find((i) => i.text === "algos");
+            const algos = items.find((i) => i.text === "algos");
             assert.ok(algos?.items, "algos has children");
             const links = algos!.items!.map((i) => i.link);
             assert.ok(links.includes("/notes/algos/trick"));
@@ -68,17 +68,15 @@ describe("buildSidebar", () => {
             assert.ok(links.includes("/notes/algos/"));
             assert.equal(algos!.items!.find((i) => i.link === "/notes/algos/")?.text, "algos");
 
-            // home key = both sections
-            const home = sidebar["/"];
-            assert.ok(home.some((i) => i.text === "luogu"));
-            assert.ok(home.some((i) => i.text === "algos"));
+            // both sections are top-level siblings
+            assert.ok(items.some((i) => i.text === "luogu"));
+            assert.ok(items.some((i) => i.text === "algos"));
 
-            // no problems/ dir → empty problems section, notes still there
+            // no problems/ dir → no items at all (Notes-only KBs still list notes)
             const bare = tmpRoot();
             try {
                 const s = buildSidebar(bare);
-                assert.deepEqual(s["/problems/"], []);
-                assert.deepEqual(s["/notes/"], []);
+                assert.deepEqual(s["/"], []);
             } finally {
                 fs.rmSync(bare, { recursive: true, force: true });
             }
