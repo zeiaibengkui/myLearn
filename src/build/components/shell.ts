@@ -4,7 +4,7 @@
 // raw()): they execute in the browser, not through the element builder.
 
 import { h, raw, type Element, type Node } from "../h.ts";
-import { BOOTSTRAP_CSS, BOOTSTRAP_JS, JQUERY } from "../cdn.ts";
+import { BOOTSTRAP_CSS, BOOTSTRAP_ICONS_CSS, BOOTSTRAP_JS, JQUERY } from "../cdn.ts";
 
 /** Dark-mode overrides the shell injects into iframe documents (scoped to
  *  `[data-bs-theme="dark"]`, so they are inert when the light theme is on;
@@ -55,9 +55,14 @@ $(function () {
   }
   var DARK_CSS = ${JSON.stringify(DARK_CSS)};
 
+  // the button shows the *target* theme (moon-stars when flipping to light,
+  // sun when flipping to dark); icon is set via .html() — .text() would
+  // strip the <i> glyph and leave the raw class.
   function applyShell() {
     document.documentElement.setAttribute("data-bs-theme", theme);
-    $("#themeToggle").text(theme === "dark" ? "light ☀" : "dark 🌙");
+    var label = theme === "dark" ? "light" : "dark";
+    var icon = theme === "dark" ? "moon-stars" : "sun";
+    $("#themeToggle").html('<i class="bi ' + icon + '"></i> ' + label);
   }
   function injectFrame(frame) {
     var doc, win;
@@ -124,8 +129,9 @@ $(function () {
     setCrumbs(href);
   });
   $("#tree").on("click", ".tree-toggle", function () {
-    var caret = $(this).find(".tree-caret");
-    caret.text(caret.text() === "▸" ? "▾" : "▸");
+    $(this)
+      .find(".tree-caret")
+      .toggleClass("bi-chevron-right bi-chevron-down");
   });
 
   applyShell();
@@ -154,18 +160,22 @@ export function Shell({ tree, first }: ShellProps): Element {
             h("meta", { property: "og:type", content: "website" }),
             h("title", null, "myLearn — knowledge base"),
             h("link", { rel: "stylesheet", href: BOOTSTRAP_CSS }),
+            h("link", { rel: "stylesheet", href: BOOTSTRAP_ICONS_CSS }),
             h("style", null, SHELL_STYLE)
         ),
         h("body", { class: "bg-body-tertiary" },
             h("nav", { class: "navbar navbar-dark bg-dark mb-3" },
                 h("div", { class: "container-fluid" },
-                    h("span", { class: "navbar-brand" }, "myLearn"),
+                    h("span", { class: "navbar-brand" },
+                        h("i", { class: "bi bi-book me-2", "aria-hidden": "true" }),
+                        "myLearn"
+                    ),
                     h("span", { class: "navbar-text small" }, "knowledge base"),
                     h("button", {
                         id: "themeToggle",
                         class: "btn btn-sm btn-outline-light",
                         type: "button",
-                    }, "dark 🌙")
+                    }, h("i", { class: "bi bi-moon-stars", "aria-hidden": "true" }), " dark")
                 )
             ),
             h("nav", { class: "container-fluid mb-2", "aria-label": "breadcrumb" },

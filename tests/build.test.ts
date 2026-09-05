@@ -101,6 +101,14 @@ describe("build", () => {
             assert.ok(index.includes("postMessage"));
             assert.ok(index.includes("mylearn-theme"));
 
+            // bootstrap icons: glyph font + brand/toggle/tree glyphs
+            assert.ok(index.includes("bootstrap-icons@1.11.3"));
+            assert.ok(index.includes('class="bi bi-book'));
+            assert.ok(index.includes('bi bi-moon-stars'));
+            assert.ok(index.includes("bi-chevron-down"));
+            assert.ok(index.includes("bi-chevron-right"));
+            assert.ok(index.includes("bi-folder2"));
+
             // problem page: SEO head + katex + escaped html + solution link
             const page = fs.readFileSync(
                 path.join(root, "build", "problems", "luogu", "P4001", "index.html"),

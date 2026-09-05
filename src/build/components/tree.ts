@@ -97,8 +97,12 @@ export function Tree({ nodes }: { nodes: ShellNode[] }): Element {
                         "data-bs-target": `#${id}`,
                         "aria-expanded": open ? "true" : "false",
                     },
-                        h("span", { class: "tree-caret" }, open ? "▾" : "▸"),
-                        ` ${n.title}`
+                        h("i", {
+                            class: "tree-caret bi " + (open ? "bi-chevron-down" : "bi-chevron-right"),
+                            "aria-hidden": "true",
+                        }),
+                        h("i", { class: "bi bi-folder2 mx-1", "aria-hidden": "true" }),
+                        n.title
                     ),
                     h("ul", {
                         class: `list-unstyled ms-3 collapse${open ? " show" : ""}`,
