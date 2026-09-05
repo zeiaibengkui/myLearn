@@ -5,3 +5,10 @@ export interface ShellNode {
     href?: string;
     children?: ShellNode[];
 }
+
+/** Mirror of src/build/index.ts's NoteEntry — the shape of the values of
+ *  build/notes.json (route path → pre-rendered note body). */
+export interface NoteEntry {
+    title: string;
+    html: string;
+}

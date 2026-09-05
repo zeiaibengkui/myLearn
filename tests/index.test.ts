@@ -102,21 +102,21 @@ describe("CLI (index.ts)", () => {
             seedProject(root);
             const { code, stdout } = await runCLI(root, ["build"]);
             assert.equal(code, 0);
-            assert.ok(stdout.includes("built 2 page(s) →"));
-            // the shell is the SPA when frontend/dist is present (repo dev
-            // env), else the h.ts fallback — both include the codebase
+            assert.ok(stdout.includes("built 2 note(s) →"));
+            // the SPA shell (repo dev env has frontend/dist) is the entry
             const index = fs.readFileSync(path.join(root, "build", "index.html"), "utf-8");
-            assert.ok(index.includes('<div id="app">') || index.includes("<iframe"));
-            // tree.json is the shell-data contract either way
+            assert.ok(index.includes('<div id="app">'));
+            // note bodies live in notes.json — no per-note html pages
+            const entries = JSON.parse(
+                fs.readFileSync(path.join(root, "build", "notes.json"), "utf-8")
+            );
+            assert.equal(entries["problems/luogu/P4001"].title, "P4001");
+            assert.ok(!fs.existsSync(path.join(root, "build", "problems", "luogu", "P4001", "index.html")));
+            // tree.json is the shell-data contract
             const treeJson = JSON.parse(
                 fs.readFileSync(path.join(root, "build", "tree.json"), "utf-8")
             );
             assert.equal(treeJson[0].title, "problems");
-            const page = fs.readFileSync(
-                path.join(root, "build", "problems", "luogu", "P4001", "index.html"),
-                "utf-8"
-            );
-            assert.ok(page.includes("<title>P4001 – myLearn</title>"));
         } finally {
             fs.rmSync(root, { recursive: true, force: true });
         }
@@ -203,10 +203,11 @@ describe("CLI (index.ts)", () => {
                         path.join(root, "notes", "trick.md"),
                         "# Trick\n\nupdated body.\n"
                     );
-                    await waitFor(() => out.stdout.includes("rebuilt 2 page(s)"), 10_000, "rebuild log");
+                    await waitFor(() => out.stdout.includes("rebuilt 2 note(s)"), 10_000, "rebuild log");
 
-                    const page = await fetch(`http://127.0.0.1:${port}/notes/trick.html`);
-                    assert.ok((await page.text()).includes("updated body."));
+                    const fresh = await fetch(`http://127.0.0.1:${port}/notes.json`);
+                    const entries = JSON.parse(await fresh.text());
+                    assert.ok(entries["notes/trick"].html.includes("updated body."));
 
                     // SIGINT: handlers close watcher + server → natural exit 0
                     const closed = new Promise<number | null>((resolve) =>

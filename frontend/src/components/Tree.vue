@@ -1,27 +1,17 @@
 <script setup lang="ts">
-// Root of the explorer tree: loads build/tree.json (written by the site
-// build) and renders the recursive Folder items. The filter is the SPA's
-// payoff over the pre-rendered h.ts Tree — it narrows the tree client-side
-// and auto-expands matching branches.
-import { computed, onMounted, ref } from "vue";
+// Root of the explorer tree: renders the recursive Folder items from the
+// site store (fetches build/tree.json). The filter is the SPA's payoff — it
+// narrows the tree client-side and auto-expands matching branches.
+import { computed, ref } from "vue";
+import { storeToRefs } from "pinia";
 import { BFormInput } from "bootstrap-vue-next";
 import Folder from "./Folder.vue";
-import type { ShellNode } from "../types.ts";
+import { useSite } from "../stores/site.ts";
 
-const nodes = ref<ShellNode[]>([]);
+const site = useSite();
+const { tree, loading, error } = storeToRefs(site);
+
 const filter = ref("");
-const error = ref(false);
-
-onMounted(async () => {
-    try {
-        const res = await fetch("./tree.json");
-        if (!res.ok) throw new Error(res.statusText);
-        nodes.value = await res.json();
-    } catch {
-        error.value = true;
-    }
-});
-
 const query = computed(() => filter.value.trim().toLowerCase());
 </script>
 
@@ -39,9 +29,10 @@ const query = computed(() => filter.value.trim().toLowerCase());
       tree.json unavailable — serve the site via
       <code>myLearn daemon</code>
     </p>
-    <ul v-else-if="nodes.length" class="list-unstyled mb-0" id="tree">
+    <p v-else-if="loading" class="text-muted small mb-0">loading…</p>
+    <ul v-else-if="tree.length" class="list-unstyled mb-0" id="tree">
       <Folder
-        v-for="(n, i) in nodes"
+        v-for="(n, i) in tree"
         :key="n.title + i"
         :node="n"
         :open-first="i === 0"

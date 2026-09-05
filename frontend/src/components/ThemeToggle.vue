@@ -2,8 +2,7 @@
 import { BButton } from "bootstrap-vue-next";
 
 // The button shows the *target* theme: moon-stars when flipping to light,
-// sun when flipping to dark — same semantics as the fallback shell in
-// src/build/components/shell.ts.
+// sun when flipping to dark.
 defineProps<{ theme: string }>();
 defineEmits<{ toggle: [] }>();
 </script>

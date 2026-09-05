@@ -1,5 +1,6 @@
-// "Solutions" section under a problem note page — one link per solution
-// page, with the href shown in muted text (mirrors the build layout).
+// "Solutions" section under a problem note body — one link per solution
+// entry, with the href shown in muted text. hrefs are hash-route hrefs
+// ("#/problems/<cat>/<title>/<sol>"), rendered into notes.json.
 
 import { h, type Node } from "../h.ts";
 

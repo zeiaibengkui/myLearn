@@ -1,19 +1,17 @@
 <script setup lang="ts">
-// Breadcrumb of the current iframe page: path segments from the iframe href,
-// decoded, with .html / index stripped. Port of setCrumbs in
-// src/build/components/shell.ts (fallback shell).
+// Breadcrumb of the current note: route path segments (decoded by the
+// router), last one active.
 import { computed } from "vue";
+import { useRoute } from "vue-router";
 import { BBreadcrumb } from "bootstrap-vue-next";
 
-const props = defineProps<{ href: string }>();
+const route = useRoute();
 
 const items = computed(() => {
-    const parts = props.href.split("/").filter(Boolean).map(decodeURIComponent);
-    const last = parts.length - 1;
-    if (last >= 0 && /\.html$/.test(parts[last])) {
-        parts[last] = parts[last].replace(/\.html$/, "");
-    }
-    if (last >= 0 && parts[last] === "index") parts.pop();
+    const parts = String(route.params.note ?? "")
+        .split("/")
+        .filter(Boolean)
+        .map(decodeURIComponent);
     return parts.length
         ? parts.map((text, i) => ({ text, active: i === parts.length - 1 }))
         : [{ text: "myLearn", active: true }];

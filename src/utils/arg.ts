@@ -42,10 +42,10 @@ program
     });
 program
     .command("build")
-    .description("Generate a static site (build/) from problems/ and notes/ — markdown-it + katex, SPA shell (Vue + BootstrapVueNext) from frontend/, h.ts fallback without it")
+    .description("Generate a static site (build/) from problems/ and notes/ — markdown rendered into notes.json + tree.json, Vue SPA (hash router) from frontend/")
     .action(async () => {
         const report = await buildSite(globalThis.projectRoot);
-        console.log(`built ${report.pages} page(s) → ${report.dir}`);
+        console.log(`built ${report.notes} note(s) → ${report.dir}`);
     });
 
 function printDiff(diff: NoteDiff): void {
@@ -114,9 +114,8 @@ maintain
     });
 
 // the long-running daemon: watcher + builder + live preview. Rebuilds build/
-// on any change under problems/ or notes/ (and under frontend/ — the SPA
-// shell sources) and pushes a reload to connected browsers; serves the site
-// over http so the shell's iframe injection works.
+// on any change under problems/, notes/ (and under frontend/ — the SPA
+// sources) and pushes a reload to connected browsers.
 program
     .command("daemon")
     .description("Watch + build + live server: rebuild build/ on change, serve it (default http://localhost:8000) and reload browsers")
@@ -124,7 +123,7 @@ program
     .action(async (options: { port: string }) => {
         const root = globalThis.projectRoot;
         const report = await buildSite(root);
-        console.log(`built ${report.pages} page(s) → ${report.dir}`);
+        console.log(`built ${report.notes} note(s) → ${report.dir}`);
 
         const live = buildServer(report.dir);
         const port = Number(options.port);
@@ -149,7 +148,7 @@ program
                 .then(async () => {
                     const r = await buildSite(root);
                     live.broadcast();
-                    console.log(`rebuilt ${r.pages} page(s) — browsers reloading (${cause})`);
+                    console.log(`rebuilt ${r.notes} note(s) — browsers reloading (${cause})`);
                 })
                 .catch((err: unknown) =>
                     console.error(`rebuild failed: ${err instanceof Error ? err.message : err}`)

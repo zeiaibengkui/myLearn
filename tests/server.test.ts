@@ -1,6 +1,8 @@
-// Live server tests — fully offline: a tmp project is built, then served via
-// buildServer() on an ephemeral port. Asserts static file serving (shell,
-// note pages, .cpp sources, directory → index.html), path-traversal
+// Live server tests — fully offline: a tmp project is built (with the real
+// SPA built once into a shared isolated outDir, so build/ has a shell
+// index.html), then served via buildServer() on an ephemeral port. Asserts
+// static file serving (SPA shell, notes.json/tree.json data files, .cpp
+// sources, 404 for the removed per-note HTML pages), path-traversal
 // rejection, and the SSE reload broadcast.
 
 import { test, describe } from "node:test";
@@ -10,10 +12,15 @@ import os from "node:os";
 import path from "node:path";
 import { buildSite } from "../src/build/index.ts";
 import { buildServer, RELOAD_PATH, type LiveServer } from "../src/build/server.ts";
+import { buildFrontend, frontendDir } from "../src/build/frontend.ts";
 
 function tmpRoot(): string {
     return fs.mkdtempSync(path.join(os.tmpdir(), "mylearn-server-test-"));
 }
+
+// one SPA build shared by every server test (the data builds copy it)
+const feOut = path.join(tmpRoot(), "dist");
+await buildFrontend(frontendDir(), feOut);
 
 function seedProject(root: string): void {
     const pdir = path.join(root, "problems", "luogu", "P4001");
@@ -45,9 +52,7 @@ function seedProject(root: string): void {
 async function startServer(): Promise<{ live: LiveServer; base: string; stop: () => void }> {
     const root = tmpRoot();
     seedProject(root);
-    // useFrontend: false → the h.ts fallback shell (deterministic; the
-    // SPA-index.html path is covered by tests/frontend.test.ts)
-    const report = await buildSite(root, { useFrontend: false });
+    const report = await buildSite(root, { feOutDir: feOut });
     const live = buildServer(report.dir);
     await new Promise<void>(resolve =>
         live.server.listen(0, "127.0.0.1", resolve)
@@ -65,14 +70,13 @@ async function startServer(): Promise<{ live: LiveServer; base: string; stop: ()
 }
 
 describe("buildServer", () => {
-    test("serves the shell with an injected live-reload client", async () => {
+    test("serves the SPA shell with an injected live-reload client", async () => {
         const { base, stop } = await startServer();
         try {
             const res = await fetch(`${base}/`);
             assert.equal(res.status, 200);
             const html = await res.text();
-            assert.ok(html.includes("bootstrap@5.3.3"));
-            assert.ok(html.includes("<iframe"));
+            assert.ok(html.includes('<div id="app">'));
             // reload client: SSE endpoint + reload, injected before </body>
             assert.ok(html.includes(`new EventSource("${RELOAD_PATH}")`));
             assert.ok(html.includes("location.reload()"));
@@ -82,21 +86,28 @@ describe("buildServer", () => {
         }
     });
 
-    test("serves note pages, sources, and directory index fallback", async () => {
+    test("serves data files, sources — no per-note html pages", async () => {
         const { base, stop } = await startServer();
         try {
-            const page = await fetch(`${base}/problems/luogu/P4001/index.html`);
-            assert.equal(page.status, 200);
-            assert.ok((await page.text()).includes("<title>P4001 – myLearn</title>"));
+            const notes = await fetch(`${base}/notes.json`);
+            assert.equal(notes.status, 200);
+            const entries = JSON.parse(await notes.text());
+            assert.ok(entries["problems/luogu/P4001"].html.includes("Body."));
 
-            // directory → index.html
-            const dir = await fetch(`${base}/problems/luogu/P4001/`);
-            assert.equal(dir.status, 200);
+            const tree = await fetch(`${base}/tree.json`);
+            assert.equal(tree.status, 200);
+            assert.ok((await tree.text()).includes("problems/luogu/P4001"));
 
             // copied .cpp source
             const cpp = await fetch(`${base}/problems/luogu/P4001/sol.cpp`);
             assert.equal(cpp.status, 200);
             assert.equal(await cpp.text(), "#include <bits/stdc++.h>\n");
+
+            // per-note html pages no longer exist — 404 (SPA only)
+            const page = await fetch(`${base}/problems/luogu/P4001/index.html`);
+            assert.equal(page.status, 404);
+            const note = await fetch(`${base}/notes/trick.html`);
+            assert.equal(note.status, 404);
         } finally {
             await stop();
         }

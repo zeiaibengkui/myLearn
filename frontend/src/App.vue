@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { onMounted, provide, ref, watch } from "vue";
+import { onMounted } from "vue";
+import { storeToRefs } from "pinia";
 import {
     BApp,
     BCard,
@@ -12,33 +13,17 @@ import {
 } from "bootstrap-vue-next";
 import Tree from "./components/Tree.vue";
 import Breadcrumb from "./components/Breadcrumb.vue";
+import NoteView from "./components/NoteView.vue";
 import ThemeToggle from "./components/ThemeToggle.vue";
-import { useTheme } from "./composables/useTheme.ts";
+import { useSite } from "./stores/site.ts";
+import { useTheme } from "./stores/theme.ts";
 
-const current = ref("");
-const frame = ref<HTMLIFrameElement | null>(null);
-const { theme, apply, injectFrame, toggle } = useTheme();
+const site = useSite();
+site.load(); // tree.json + notes.json (one-time on mount)
 
-const open = (href: string) => {
-    current.value = href;
-};
-
-// shared with the recursive tree (inject in Folder.vue — no event echo at
-// every depth)
-provide("linkCtx", { current, open });
-
-onMounted(() => {
-    apply();
-    injectFrame(frame.value);
-});
-watch(theme, () => {
-    apply();
-    injectFrame(frame.value);
-    frame.value?.contentWindow?.postMessage(
-        { type: "mylearn-theme", theme: theme.value },
-        "*"
-    );
-});
+const theme = useTheme();
+const { theme: themeName } = storeToRefs(theme);
+onMounted(() => theme.apply());
 </script>
 
 <template>
@@ -49,11 +34,11 @@ watch(theme, () => {
           <i class="bi bi-book me-2" aria-hidden="true"></i>myLearn
         </BNavbarBrand>
         <span class="navbar-text small">knowledge base</span>
-        <ThemeToggle :theme="theme" @toggle="toggle" />
+        <ThemeToggle :theme="themeName" @toggle="theme.toggle" />
       </BContainer>
     </BNavbar>
     <BContainer fluid class="mb-2">
-      <Breadcrumb :href="current" />
+      <Breadcrumb />
     </BContainer>
     <BContainer fluid>
       <BRow class="g-3">
@@ -65,15 +50,11 @@ watch(theme, () => {
           </BCard>
         </BCol>
         <BCol cols="9">
-          <iframe
-            id="content"
-            ref="frame"
-            class="w-100 rounded border"
-            :src="current"
-            style="height: calc(100vh - 110px)"
-            title="content"
-            @load="injectFrame(frame)"
-          ></iframe>
+          <BCard>
+            <BCardBody>
+              <NoteView />
+            </BCardBody>
+          </BCard>
         </BCol>
       </BRow>
     </BContainer>
@@ -81,7 +62,8 @@ watch(theme, () => {
 </template>
 
 <style>
-/* minimal shell chrome; colors come from bootstrap CSS variables */
+/* shell chrome + dark-mode overrides for note bodies; colors come from
+   bootstrap CSS variables */
 #tree a {
     padding: 0.15rem 0.5rem;
     border-radius: 0.25rem;
@@ -98,5 +80,23 @@ watch(theme, () => {
 #tree .tree-toggle {
     padding-left: 0.5rem;
     box-shadow: none;
+}
+
+/* note content renders in the shell document — apply the dark theme's
+   content tweaks globally (scoped to [data-bs-theme="dark"], so they are
+   inert in light mode; the base swap happens via data-bs-theme itself).
+   Port of the old iframe DARK_CSS (composables/useTheme.ts). */
+[data-bs-theme="dark"] pre,
+[data-bs-theme="dark"] code,
+[data-bs-theme="dark"] .highlight {
+    background-color: #26292e;
+    color: #e9ecef;
+}
+[data-bs-theme="dark"] blockquote {
+    border-color: #495057;
+}
+[data-bs-theme="dark"] td,
+[data-bs-theme="dark"] th {
+    border-color: #37393d;
 }
 </style>

@@ -72,12 +72,13 @@ invocation. The CLI refuses to start unless it finds `.mylearn/config.json`
 
 7. **Optional — browse as a site** — `build` regenerates `build/` (wiped first,
    so edits and deletions are reflected); serve it with `daemon` (default
-   http://localhost:8000, browsers auto-reload) or open `build/index.html`:
-   the shell is a Vue + BootstrapVueNext SPA (built by vite from `frontend/`)
-   that lists everything — with client-side filter — and shows a note in an
-   iframe. Without a frontend build the h.ts fallback shell renders instead.
-   Every note page is a full document with SEO meta (title/description/og)
-   and server-side katex math.
+   http://localhost:8000, browsers auto-reload) or open `build/index.html`.
+   The site is a single Vue 3 + BootstrapVueNext SPA (`frontend/`) over hash
+   URLs: `#/problems/luogu/P4001` for a note, `#/notes/algos/trick` for a
+   freeform note. There are no per-note HTML pages — every note's markdown is
+   rendered server-side (katex math, TOC, heading permalinks) into
+   `build/notes.json`, which the SPA fetches and renders with v-html; the
+   sidebar tree comes from `build/tree.json`.
 
 ## Command reference
 
@@ -90,7 +91,7 @@ invocation. The CLI refuses to start unless it finds `.mylearn/config.json`
 | `maintain watch` | diff problems/ vs the index snapshot (one-shot) |
 | `maintain luogu -p <problem>` | re-validate the C++ sources saved in a note |
 | `ai "<prompt>" [-p <problem>]` | hand the prompt to the client CLI (with `-p`, the note bundle + a pointer to this doc) |
-| `build` | regenerate the static site in `build/` (markdown-it + katex; Vue SPA shell from `frontend/`, h.ts fallback) |
+| `build` | regenerate the site in `build/` (markdown-it + katex → `notes.json`; Vue SPA shell from `frontend/`) |
 | `daemon` | watch + rebuild + live-reload server (problems/, notes/, frontend/) |
 
 Types of arguments: `-p, --problem <spec>` works anywhere in the command line

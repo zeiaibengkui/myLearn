@@ -1,8 +1,8 @@
 // Live preview server for the generated site (zero deps, node:http). The
-// shell's iframe needs build/ served over a real origin (same-origin
-// dark-mode injection; file:// blocks it), and after each rebuild browsers
-// should refresh — a tiny SSE endpoint, plus a client script injected into
-// every served HTML page connecting to it.
+// SPA shell needs build/ served over a real origin (same-origin fetch of
+// tree.json/notes.json/copied sources; file:// blocks it), and after each
+// rebuild browsers should refresh — a tiny SSE endpoint, plus a client
+// script injected into every served HTML page connecting to it.
 
 import http from "node:http";
 import fs from "node:fs";

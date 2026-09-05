@@ -1,13 +1,15 @@
 // The markdown renderer: one shared markdown-it instance with the plugin
-// chain (katex markdown-it-class bootstrap classes, markdown-it-anchor
+// chain (katex, markdown-it-class bootstrap classes, markdown-it-anchor
 // heading ids + permalinks) and the pieces that turn a markdown body into
-// page content: slugify, the TOC collector, renderMarkdown, seoDescription.
+// note content: slugify, the TOC collector, renderMarkdown, and linkify
+// (rewrites body hrefs for the Vue hash router).
 
 import markdownit from "markdown-it";
 import mdKatex from "markdown-it-katex";
 import classPlugin from "markdown-it-class";
 import markdownItAnchor from "markdown-it-anchor";
 import { h, render } from "./h.ts";
+import { hrefFor } from "./util.ts";
 import { Toc, type TocEntry } from "./components/toc.ts";
 
 /** Heading id slug: lowercase, spaces → dashes, drop everything but
@@ -51,26 +53,34 @@ const md = markdownit({ html: false, linkify: true })
     });
 
 /**
- * Plain-text snippet for <meta name="description">: drop math (inline and
- * block) and fenced code, then strip markdown syntax (headings, emphasis,
- * links → text), collapse whitespace, truncate to ~160 chars.
+ * Rewrite a rendered note body for the Vue hash router (the body is v-html'd
+ * inside the SPA document, so a link is a *route* link, not a relative URL):
+ *  - `href="#slug"` (TOC nodes, heading permalinks) becomes the current
+ *    note's route plus the fragment: `href="#/problems/luogu/P4001#slug"`;
+ *  - relative links ending in `.md`/`.html` (authored cross-note links, e.g.
+ *    `[sol](P4001 题解.html)`) become route links to the resolved note,
+ *    resolved against the current route's directory, suffix stripped;
+ *  - everything else (absolute URLs, `#/...` route links, images) is left
+ *    alone.
  */
-export function seoDescription(markdown: string): string {
-    const text = markdown
-        .replace(/\$\$[\s\S]*?\$\$/g, " ")
-        .replace(/\$[^$]*\$/g, " ")
-        .replace(/```[\s\S]*?```/g, " ")
-        .replace(/!\[[^\]]*\]\([^)]*\)/g, " ")
-        .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
-        .replace(/<[^>]*>/g, " ") // html tags (markdown-it keeps them escaped anyway)
-        .replace(/^\s{0,3}#{1,6}\s+/gm, "")
-        .replace(/[*_~`>$]+/g, " ")
-        .replace(/\s+/g, " ")
-        .trim();
-    return text.length > 160 ? `${text.slice(0, 157)}...` : text;
+export function linkify(html: string, routePath: string, noteDir = routePath): string {
+    const routeHref = `#/${hrefFor(...routePath.split("/"))}`;
+    return html.replace(/(\shref=")([^"]*)(")/g, (m, pre: string, href: string, post: string) => {
+        if (href.startsWith("#")) {
+            if (href === "#" || href.startsWith("#/")) return m;
+            return `${pre}${routeHref}${href}${post}`;
+        }
+        if (!href.endsWith(".md") && !href.endsWith(".html")) return m;
+        if (/^[a-z]+:/i.test(href) || href.startsWith("/")) return m; // absolute
+        // markdown-it encodes spaces in destinations — normalize, then
+        // re-encode per segment via hrefFor
+        const target = decodeURIComponent(href).replace(/\.(md|html)$/, "");
+        const resolved = noteDir ? `${noteDir}/${target}` : target;
+        return `${pre}#/${hrefFor(...resolved.split("/"))}${post}`;
+    });
 }
 
-/** Render a markdown body (raw HTML for Page content). An explicit `@[toc]`
+/** Render a markdown body (raw HTML for NoteView). An explicit `@[toc]`
  *  marker — or one injected automatically when the note has ≥2 headings — is
  *  swapped for the nested TOC (the marker renders as a plain paragraph
  *  first). Without a marker no index is generated. */

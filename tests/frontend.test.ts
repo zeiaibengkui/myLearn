@@ -1,8 +1,8 @@
-// Shell SPA tests — the real repo frontend/ is built with vite (bundling from
+// SPA tests — the real repo frontend/ is built with vite (bundling from
 // local node_modules only, no network/CDN) into an isolated outDir so the
 // repo artifact frontend/dist is never touched by tests. Also unit-tests the
 // build glue in src/build/frontend.ts (needsBuild/copyDist) and the buildSite
-// SPA path (tree.json + SPA index.html from an isolated feOutDir).
+// SPA path (tree.json + notes.json + SPA index.html from an isolated feOutDir).
 
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
@@ -34,25 +34,34 @@ async function buildTo(outDir: string): Promise<string> {
 }
 
 describe("frontend build", () => {
-    test("vite builds the shell SPA (offline, no CDN for bootstrap)", async () => {
+    test("vite builds the SPA (offline, no CDN for bootstrap)", async () => {
         const out = await buildTo(path.join(tmpRoot(), "dist"));
         const index = fs.readFileSync(path.join(out, "index.html"), "utf-8");
         // vue mount point + relative hashed assets (base: "./")
         assert.ok(index.includes('<div id="app">'));
         assert.match(index, /<script[^>]+src="\.\/assets\/[^"]+\.js"/);
-        // the icons font stays a CDN link; bootstrap CSS is bundled instead
+        // the icons font stays a CDN link; bootstrap is bundled instead
         assert.ok(index.includes("bootstrap-icons@1.11.3"));
         assert.ok(!index.includes("cdn.jsdelivr.net/npm/bootstrap@"));
+        assert.ok(!index.includes("cdn.jsdelivr.net/npm/katex"));
         const assets = fs.readdirSync(path.join(out, "assets"));
         assert.ok(assets.some((a) => a.endsWith(".css")), "bundled bootstrap css");
         const js = assets
             .filter((a) => a.endsWith(".js"))
             .map((a) => fs.readFileSync(path.join(out, "assets", a), "utf-8"))
             .join("");
-        // tree fetching + icon glyphs + theme plumbing made it into the bundle
+        const css = assets
+            .filter((a) => a.endsWith(".css"))
+            .map((a) => fs.readFileSync(path.join(out, "assets", a), "utf-8"))
+            .join("");
+        // data fetching + hash router + icon glyphs + theme plumbing
         assert.ok(js.includes("tree.json"));
+        assert.ok(js.includes("notes.json"));
+        assert.ok(js.includes(":note(.*)"), "hash router catch-all route");
         assert.ok(js.includes("bi-folder2"));
         assert.ok(js.includes("mylearn-theme"));
+        // katex CSS bundled (must match the server-side katex version)
+        assert.ok(css.includes(".katex"));
     });
 
     test("needsBuild: dist missing → true, dist newer → false, source edit → true", () => {
@@ -71,7 +80,7 @@ describe("frontend build", () => {
         // a source edited after the build → rebuild
         fs.utimesSync(path.join(fe, "src", "main.ts"), new Date(), new Date(Date.now() + 10_000));
         assert.ok(needsBuild(fe));
-        // no frontend at all → false (caller falls back to h.ts shell)
+        // no frontend at all → false (caller skips the SPA)
         const bare = tmpRoot();
         assert.ok(!needsBuild(bare));
     });
@@ -91,7 +100,7 @@ describe("frontend build", () => {
         assert.ok(fs.existsSync(path.join(site, "assets", "a.js")));
     });
 
-    test("buildSite writes tree.json and serves the SPA shell", async () => {
+    test("buildSite writes data files and serves the SPA shell", async () => {
         const root = tmpRoot();
         try {
             const pdir = path.join(root, "problems", "luogu", "P4001");
@@ -110,17 +119,26 @@ describe("frontend build", () => {
             const index = fs.readFileSync(path.join(root, "build", "index.html"), "utf-8");
             assert.ok(index.includes('<div id="app">'));
             assert.ok(fs.existsSync(path.join(root, "build", "assets")));
-            assert.equal(report.pages, 2); // P4001 + trick
+            assert.equal(report.notes, 2); // P4001 + trick
 
-            // tree.json mirrors problems/ then notes/, as in the fallback
+            // notes.json: route-path keys with pre-rendered bodies
+            const entries = JSON.parse(
+                fs.readFileSync(path.join(root, "build", "notes.json"), "utf-8")
+            );
+            assert.equal(entries["problems/luogu/P4001"].title, "P4001");
+            assert.ok(entries["notes/trick"].html.includes('class="katex"'));
+
+            // tree.json: route-path hrefs (no .html/index), problems/ then notes/
             const tree = JSON.parse(
                 fs.readFileSync(path.join(root, "build", "tree.json"), "utf-8")
             );
             assert.equal(tree[0].title, "problems");
             assert.equal(tree[0].children[0].title, "luogu");
             assert.equal(tree[0].children[0].children[0].title, "P4001");
+            assert.equal(tree[0].children[0].children[0].href, "problems/luogu/P4001");
             assert.equal(tree[1].title, "notes");
             assert.equal(tree[1].children[0].title, "Trick"); // from the # heading
+            assert.equal(tree[1].children[0].href, "notes/trick");
         } finally {
             fs.rmSync(root, { recursive: true, force: true });
         }
