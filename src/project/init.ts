@@ -1,6 +1,6 @@
 import path from "node:path";
 import fs from "node:fs";
-import { scaffoldSite } from "../site/setup.ts";
+import { DEFAULT_SITE_REPO, cloneSite } from "./clone.ts";
 type RecursiveRecord = {
     [key: string]: string | RecursiveRecord;
 };
@@ -49,10 +49,19 @@ function genPath(tree: ProjectTree, root: string) {
     }
 }
 
-export default function initProject(path: string) {
-    console.log("init project at", path);
-    genPath(tree, path);
-    // new projects are site-ready: .vitepress/ scaffold (VitePress renders
-    // the markdown in place — re-run `site setup` to refresh the templates)
-    scaffoldSite(path);
+export interface InitOptions {
+    /** take the site scaffold from a remote KB (true → DEFAULT_SITE_REPO) */
+    online?: string | boolean;
+}
+
+export default function initProject(target: string, options: InitOptions = {}) {
+    console.log("init project at", target);
+    genPath(tree, target);
+    // The bare tree is all the CLI writes — the site scaffold isn't shipped
+    // here: a configured KB is the template, so `--online [repo]` clones one
+    // (its .vitepress/ + build/CI files) into the new project.
+    const online = options.online;
+    if (online) {
+        cloneSite(target, typeof online === "string" ? online : DEFAULT_SITE_REPO);
+    }
 }

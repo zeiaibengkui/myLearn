@@ -7,11 +7,25 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { spawn, type ChildProcess } from "node:child_process";
+import { execFileSync, spawn, spawnSync, type ChildProcess } from "node:child_process";
 
 const repoRoot = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
 const CLI = path.join(repoRoot, "index.ts");
 const TSX = path.join(repoRoot, "node_modules", ".bin", "tsx");
+
+const hasGit = (() => {
+    try {
+        execFileSync("git", ["--version"], { stdio: "ignore" });
+        return true;
+    } catch {
+        return false;
+    }
+})();
+
+function git(cwd: string, args: string[]): void {
+    const r = spawnSync("git", args, { cwd, stdio: ["ignore", "ignore", "pipe"] });
+    if (r.status !== 0) throw new Error(`git ${args.join(" ")} failed: ${r.stderr}`);
+}
 
 function tmpRoot(): string {
     return fs.mkdtempSync(path.join(os.tmpdir(), "mylearn-cli-test-"));
@@ -99,26 +113,6 @@ describe("CLI (index.ts)", () => {
         }
     });
 
-    test("site setup scaffolds .vitepress/ and the GitHub Pages bits", async () => {
-        const root = tmpRoot();
-        try {
-            seedProject(root);
-            const { code } = await runCLI(root, ["site", "setup", "--pages"]);
-            assert.equal(code, 0);
-            assert.ok(fs.existsSync(path.join(root, ".vitepress", "config.ts")));
-            assert.ok(fs.existsSync(path.join(root, ".github", "workflows", "site-pages.yml")));
-            assert.equal(
-                JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf-8")).name,
-                path.basename(root)
-            );
-            // idempotent second run
-            const again = await runCLI(root, ["site", "setup"]);
-            assert.equal(again.code, 0);
-        } finally {
-            fs.rmSync(root, { recursive: true, force: true });
-        }
-    });
-
     test("maintain watch snapshots, then reports up to date", async () => {
         const root = tmpRoot();
         try {
@@ -132,6 +126,47 @@ describe("CLI (index.ts)", () => {
             assert.ok(second.stdout.includes("Everything up to date."));
         } finally {
             fs.rmSync(root, { recursive: true, force: true });
+        }
+    });
+
+    test("init --online clones the site scaffold from a remote KB", { skip: !hasGit }, async () => {
+        const root = tmpRoot();
+        const target = tmpRoot();
+        const remote = tmpRoot();
+        try {
+            seedProject(root);
+            // a stand-in "remote": a configured KB — site files + layout
+            fs.mkdirSync(path.join(remote, ".vitepress"), { recursive: true });
+            fs.writeFileSync(path.join(remote, ".vitepress", "config.ts"), "// from remote\n");
+            fs.writeFileSync(
+                path.join(remote, "package.json"),
+                '{"name": "kb", "scripts": {"site": "vitepress dev ."}}\n'
+            );
+            fs.mkdirSync(path.join(remote, "problems"), { recursive: true });
+            git(remote, ["init", "-q"]);
+            git(remote, ["add", "-A"]);
+            git(remote, ["-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "seed"]);
+
+            const { code, stdout } = await runCLI(root, ["init", target, "--online", remote]);
+            assert.equal(code, 0);
+            assert.ok(stdout.includes("cloned from"));
+            assert.equal(
+                fs.readFileSync(path.join(target, ".vitepress", "config.ts"), "utf-8"),
+                "// from remote\n"
+            );
+            // the site is runnable in place: build files come along, renamed
+            assert.equal(
+                JSON.parse(fs.readFileSync(path.join(target, "package.json"), "utf-8")).name,
+                path.basename(target)
+            );
+            // the template tree is still written alongside the cloned site,
+            // and the remote's own content does not travel
+            assert.ok(fs.existsSync(path.join(target, "readme.md")));
+            assert.ok(!fs.existsSync(path.join(target, "problems", "luogu")));
+        } finally {
+            fs.rmSync(root, { recursive: true, force: true });
+            fs.rmSync(target, { recursive: true, force: true });
+            fs.rmSync(remote, { recursive: true, force: true });
         }
     });
 
@@ -149,9 +184,8 @@ describe("CLI (index.ts)", () => {
                 fs.readFileSync(path.join(target, ".mylearn", "config.json"), "utf-8"),
                 "{}"
             );
-            // new projects are site-ready
-            assert.ok(fs.existsSync(path.join(target, ".vitepress", "config.ts")));
-            assert.ok(fs.existsSync(path.join(target, ".vitepress", "sidebar.ts")));
+            // no site without --online: the scaffold lives in a KB, not in the CLI
+            assert.ok(!fs.existsSync(path.join(target, ".vitepress")));
         } finally {
             fs.rmSync(root, { recursive: true, force: true });
             fs.rmSync(target, { recursive: true, force: true });

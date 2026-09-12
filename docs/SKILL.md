@@ -20,9 +20,9 @@ against the note's samples before it is archived.
 │           ├── Explanation.md # optional: the agent-written explanation (idea, complexity)
 │           └── *.cpp         # copied source files
 ├── notes/                    # freeform notes, sibling of problems/ (nestable)
-├── .vitepress/               # site scaffold — config.ts, sidebar.ts, theme/ (from `site setup`)
-├── .github/workflows/        # site-pages.yml — GitHub Pages CI (from `site setup --pages`)
-├── package.json              # site scripts + vitepress devDeps (from `site setup --pages`)
+├── .vitepress/               # site config — theme/, sidebar.ts (from `init --online`)
+├── .github/workflows/        # site-pages.yml — GitHub Pages CI (from `init --online`)
+├── package.json              # site scripts + vitepress devDeps (from `init --online`)
 └── readme.md                 # the site's home page
 ```
 
@@ -70,29 +70,27 @@ invocation. The CLI refuses to start unless it finds `.mylearn/config.json`
 6. **Revalidate / keep fresh** —
    - `maintain luogu -p <note>` re-runs every saved .cpp in a note
    - `maintain watch` one-shot diff of `problems/` vs `.mylearn/index/latest.json`
-   - `daemon` the long-running watcher (Ctrl-C stops)
 
 7. **Optional — browse as a site** — the markdown files *are* the site: there
-   is no generation step. `site dev` runs the VitePress dev server on this
-   project (sidebar from the disk tree, math, breadcrumbs); `site build`
-   produces a static site in `.vitepress/dist/` (same as the scaffolded
-   `site:build` script). `readme.md` is the home page; every `problem.md`
-   resolves to `/problems/<cat>/<title>/`. To publish: `site setup --pages`,
+   is no generation step and no `site` verb. A project scaffolded with
+   `init --online` carries VitePress + scripts, so `pnpm install` once, then
+   `pnpm site` (dev server), `pnpm site:build` (static site in
+   `.vitepress/dist/`), `pnpm site:preview`. `readme.md` is the home page;
+   every `problem.md` resolves to `/problems/<cat>/<title>/`; the sidebar
+   comes from the disk tree (folded, only the current path open). To publish,
    push to GitHub, then repo Settings → Pages → Source: GitHub Actions.
 
 ## Command reference
 
 | Command | Purpose |
 |---|---|
-| `init <dir>` | write a project template tree |
+| `init <dir> [--online [repo]]` | write a project template tree; `--online` also clones the site scaffold (`.vitepress/` + build/CI files) from a remote KB |
 | `luogu fetch <source> [-c <category>]` | import a Luogu problem (pid or URL), default category `luogu` |
 | `luogu submit <sol.cpp> -p <problem>` | validate against samples; archive on success |
 | `pdf import <file> -c <category>` | import a local PDF as a note |
 | `maintain watch` | diff problems/ vs the index snapshot (one-shot) |
 | `maintain luogu -p <problem>` | re-validate the C++ sources saved in a note |
 | `ai "<prompt>" [-p <problem>]` | hand the prompt to the client CLI (with `-p`, the note bundle + a pointer to this doc) |
-| `site setup [--pages] [--force]` | scaffold `.vitepress/` (+ package.json + GitHub Pages workflow with `--pages`); run it once per project |
-| `site dev / build / preview` | run VitePress on this project's markdown (dev server / static `site` in `.vitepress/dist/` / preview it) |
 
 Types of arguments: `-p, --problem <spec>` works anywhere in the command line
 (`-p P5985 luogu submit sol.cpp` or `luogu submit sol.cpp -p P5985`). `spec` is
@@ -114,19 +112,20 @@ them).
 - `g++` (luogu submit/maintain) and `markitdown` (pdf import) are optional
   system dependencies — the verb that needs them fails with a clear error.
 - Web-sourced titles are sanitized; path segments are validated on save.
-- The site renders in place — `site dev|build|preview` pin the *app project*
-  from the CWD, so run the CLI inside the project (or `cd` there first).
+- The site renders in place — the project's own `pnpm site*` scripts (from the
+  `init --online` scaffold) run VitePress on the project root; the myLearn CLI
+  has no site verb. A project created without `--online` has no `.vitepress/`:
+  re-run `init <dir> --online [repo]` in it to pull one in.
 - GitHub Pages: the site lives under `/<repo>/` on repo sites (`MYLEARN_BASE`
   in the workflow); a `<user>.github.io` repo is normalized to `/`. In repo
-  Settings → Pages, choose Source *GitHub Actions* — and the repo needs its
-  scaffolded `package.json` + `pnpm-workspace.yaml` (esbuild allowlist),
-  because CI has no access to the myLearn repo.
-  Commit a `pnpm-lock.yaml` too (`pnpm install --lockfile-only`): the
-  workflow's setup-node cache errors without it.
+  Settings → Pages, choose Source *GitHub Actions* — the cloned `package.json`
+  + `pnpm-workspace.yaml` (esbuild allowlist) are what CI needs, since it has
+  no access to the myLearn repo. Run `pnpm install` and commit the
+  `pnpm-lock.yaml` it writes: the workflow's setup-node cache errors without it.
 - SEO is opt-in: set `MYLEARN_SITE_URL` (canonical origin, e.g.
   `https://chunl.ai`) and `MYLEARN_LANG` (e.g. `zh-CN`) when building —
   the config then emits canonical + og tags per page and writes
   `sitemap.xml` + `robots.txt` (and `<html lang>`). Add both env vars to
-  the workflow's build step (`site setup --pages` leaves them as comments).
+  the workflow's build step (they are left there as comments).
 - Verifying your own work: `pnpm exec tsc --noEmit` and `pnpm test` (from the
   myLearn repo, not the project).

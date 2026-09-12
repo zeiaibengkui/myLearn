@@ -5,7 +5,8 @@
 
 import path from "node:path";
 import { program } from "./program.ts";
-import initProject from "../project/init.ts";
+import initProject, { type InitOptions } from "../project/init.ts";
+import { DEFAULT_SITE_REPO } from "../project/clone.ts";
 import { watch, type NoteDiff } from "../maintain/watch.ts";
 import {
     maintain as maintainLuogu,
@@ -14,7 +15,6 @@ import { openNote, resolveNote } from "../ai/problems.ts";
 import "../provider/luogu/index.ts";
 import "../provider/pdf/index.ts";
 import "../provider/ai/index.ts";
-import "../site/index.ts";
 
 program
     .name("myLearn")
@@ -33,8 +33,9 @@ program
     .command("init")
     .description("Initialize a new project template")
     .argument("<dir>", "target directory")
-    .action((dir: string) => {
-        initProject(path.resolve(dir));
+    .option("--online [repo]", `take the site scaffold from a remote KB (default ${DEFAULT_SITE_REPO})`)
+    .action((dir: string, options: InitOptions) => {
+        initProject(path.resolve(dir), options);
     });
 function printDiff(diff: NoteDiff): void {
     for (const f of diff.added) console.log(`  [added]   ${f}`);
@@ -101,6 +102,4 @@ maintain
         process.exitCode = report.ok ? 0 : 1;
     });
 
-// site provider registers `site setup|dev|build|preview` (VitePress) —
-// imported at the top of this file, no local code.
 await program.parseAsync();

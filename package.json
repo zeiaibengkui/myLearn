@@ -4,7 +4,7 @@
     "description": "",
     "main": "index.js",
     "scripts": {
-        "test": "tsx --test tests/fetch.test.ts tests/maintain.test.ts tests/ai.test.ts tests/index.test.ts tests/site.test.ts",
+        "test": "tsx --test tests/fetch.test.ts tests/maintain.test.ts tests/ai.test.ts tests/index.test.ts tests/clone.test.ts",
         "run": "pnpx tsx index.ts"
     },
     "keywords": [],
@@ -25,10 +25,7 @@
     },
     "devDependencies": {
         "@types/node": "^26.3.0",
-        "markdown-it-mathjax3": "^4.0.0",
         "tsx": "^4.23.12",
-        "typescript": "^7.0.2",
-        "vitepress": "^1.6.4",
-        "vue": "^3.5.42"
+        "typescript": "^7.0.2"
     }
 }

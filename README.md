@@ -30,17 +30,15 @@ cd /path/to/my-problems && pnpx tsx /path/to/myLearn/index.ts luogu fetch P4001
 ## Commands
 
 ```
-myLearn init <dir>                          # write a project template tree (site-ready)
+myLearn init <dir> [--online [repo]]        # write a project template tree;
+                                            #  --online also clones the site scaffold
+                                            #  (.vitepress/ + build/CI files) from a remote KB
 myLearn luogu fetch <source> [-c category]  # import a Luogu problem (pid or URL)
 myLearn luogu submit <sol.cpp> -p <problem> # validate a solution, archive on success
 myLearn pdf import <file> -c category       # import a local PDF as a note
 myLearn ai "<prompt>" [-p <problem>]        # hand the prompt (plus note, with -p) to codex
 myLearn maintain watch                      # diff problems/ against the index snapshot (one-shot)
 myLearn maintain luogu -p <problem>         # revalidate the solution files stored in a note
-myLearn site setup [--pages] [--force]      # scaffold .vitepress/ (+ package.json + GH Pages workflow)
-myLearn site dev                            # VitePress dev server (Ctrl-C stops)
-myLearn site build                          # static site into .vitepress/dist/ — deployable anywhere
-myLearn site preview                        # serve the built site locally
 ```
 
 Every command runs as `pnpx tsx index.ts <command>` — from the project root of the
@@ -62,7 +60,9 @@ pnpx tsx /path/to/myLearn/index.ts maintain luogu -p P4001            # re-runs 
 pnpx tsx /path/to/myLearn/index.ts maintain watch                     # what changed since the last snapshot (.mylearn/index/latest.json)
 pnpx tsx /path/to/myLearn/index.ts pdf import notes.pdf -c course     # import a local PDF via markitdown
 pnpx tsx /path/to/myLearn/index.ts ai "Solve this problem." -p P4001  # paste-ready prompt bundle (no API call)
-pnpx tsx /path/to/myLearn/index.ts site build                         # static site into .vitepress/dist/
+
+pnpm site:build                    # the site — its own scripts, not a myLearn verb
+                                   # (only in a project created with `init --online`)
 ```
 
 ### AI
@@ -95,10 +95,10 @@ the CLI refuses to start without `.mylearn/config.json` in its CWD.
 │           ├── <solution>.md
 │           └── <source files>  # e.g. solution.cpp, imported PDFs
 ├── notes/                   # freeform notes, sibling of problems/ (nestable)
-├── .vitepress/              # site scaffold from `site setup` — config.ts, sidebar.ts, theme/;
+├── .vitepress/              # site config + theme — cloned by `init --online`;
 │                            #   .vitepress/dist/ after a build (gitignored)
-├── .github/workflows/       # site-pages.yml (CI) — written by `site setup --pages`
-├── package.json             # written by `site setup --pages` — site scripts + vitepress devDeps
+├── .github/workflows/       # site-pages.yml (CI) — cloned by `init --online`
+├── package.json             # site scripts + vitepress devDeps — cloned by `init --online`
 └── readme.md                # the site's home page (rewrites to index.md)
 ```
 
@@ -134,35 +134,49 @@ the CLI refuses to start without `.mylearn/config.json` in its CWD.
   `### 样例` sections of a note description, compiles a C++ solution with `g++`
   (no shell), runs each sample on stdin, and judges with trailing-whitespace
   normalization (timeout → TLE, nonzero exit → runtime error).
-- **Site** — there is no custom build system: the knowledge-base markdown IS
-  the site, VitePress renders it in place. `site setup` copies `.vitepress/`
-  (`config.ts`, `sidebar.ts`, `theme/`) from `src/site/templates/` into the
-  project; `--pages` also writes `package.json` + `.github/workflows/`
-  (GitHub Pages). `site dev|build|preview` run the VitePress CLI with the
-  project root as cwd. Routes: `readme.md` → home, every `problem.md` →
-  `problems/<cat>/<title>/` (via rewrites + cleanUrls); `MYLEARN_BASE` sets
-  the base at build time (`/<repo>/` from CI, user sites normalize to `/`).
-  The sidebar is generated from the disk tree (`sidebar.ts`: frontmatter
-  titles, `notes/` recursed); `markdown: { math: true }` renders math
-  server-side (markdown-it-mathjax3); a `buildEnd` hook mirrors non-markdown
-  files (solution sources, PDFs) from `problems/` into the output so hosted
-  pages keep them downloadable. SEO is opt-in: `MYLEARN_SITE_URL` (canonical
+- **Site** — there is no custom build system and no `site` verb: the
+  knowledge-base markdown IS the site, VitePress renders it in place. The
+  scaffold is not shipped with the CLI — a *configured* KB is the template, so
+  `init --online [repo]` (default `https://github.com/zeiaibengkui/mylearn-kb`,
+  needs `git`) shallow-clones one and copies its site files into the new
+  project: every `.vitepress/**` file (minus build output), plus the build/CI
+  files it has (`package.json` — renamed to the project —,
+  `pnpm-workspace.yaml`, `.github/workflows/*`). The remote's content
+  (`problems/`, `notes/`, `readme.md`) never travels; existing files are kept.
+  The project then runs its own scripts (`pnpm site`, `pnpm site:build`,
+  `pnpm site:preview`). The scaffolded config: routes `readme.md` → home and
+  every `problem.md` → `problems/<cat>/<title>/` (rewrites + cleanUrls);
+  `MYLEARN_BASE` sets the base at build time (`/<repo>/` from CI, user sites
+  normalize to `/`). The sidebar is generated from the disk tree
+  (`sidebar.ts`: frontmatter titles, `notes/` recursed) with folder
+  behaviour — groups are `collapsed` and only the current path unfolds;
+  `markdown: { math: true }` renders math server-side
+  (markdown-it-mathjax3); a `buildEnd` hook mirrors non-markdown files
+  (solution sources, PDFs) from `problems/` into the output so hosted pages
+  keep them downloadable. SEO is opt-in: `MYLEARN_SITE_URL` (canonical
   origin) adds per-page canonical + og tags and writes `sitemap.xml` +
-  `robots.txt`, `MYLEARN_LANG` sets `<html lang>` (default `en-US`).
+  `robots.txt`, `MYLEARN_LANG` sets `<html lang>` (default `en-US`; `og:title`
+  is emitted either way). Comments are opt-in too:
+  `MYLEARN_GISCUS="<owner/repo>,<repoId>,<category>,<categoryId>"` (ids from
+  giscus.app — the repo needs Discussions + the giscus app) mounts giscus under
+  every page; `MYLEARN_GISCUS_MAPPING` picks the discussion key (default
+  `pathname`; `og:title` also works) and the widget language follows
+  `MYLEARN_LANG`. The theme re-mounts it on client-side navigation and follows
+  the appearance toggle.
 
 ## Publish to GitHub Pages
 
-`site setup --pages` writes a CI workflow — push the project to its own GitHub
-repo, then Settings → Pages → Source: *GitHub Actions*. Every push to main (and
-manual runs) rebuilds and deploys `.vitepress/dist`; the workflow sets
-`MYLEARN_BASE: /<repo>/` (a `<user>.github.io` repo is normalized to `/` by the
-scaffolded config), and you can add `MYLEARN_SITE_URL` + `MYLEARN_LANG` to its
-build step for the SEO extras (canonical/og, sitemap/robots, `html lang`). The
-repo needs the scaffolded `package.json` (scripts + vitepress devDeps + the
-pnpm pin) and `pnpm-workspace.yaml` (esbuild allowlist — pnpm 11 blocks its
-build script otherwise) — CI has no access to the myLearn repo. Also commit a
-`pnpm-lock.yaml` (generate with `pnpm install --lockfile-only`; the workflow's
-`setup-node` cache step errors without it — `site setup` reminds you).
+The scaffold cloned by `init --online` brings the CI workflow — push the
+project to its own GitHub repo, then Settings → Pages → Source: *GitHub
+Actions*. Every push to main (and manual runs) rebuilds and deploys
+`.vitepress/dist`; the workflow sets `MYLEARN_BASE: /<repo>/` (a
+`<user>.github.io` repo is normalized to `/` by the config), and you can set
+`MYLEARN_SITE_URL` + `MYLEARN_LANG` on its build step for the SEO extras
+(canonical/og, sitemap/robots, `html lang`). CI needs the cloned
+`package.json` (scripts + vitepress devDeps + the pnpm pin) and
+`pnpm-workspace.yaml` (esbuild allowlist — pnpm 11 blocks its build script
+otherwise). Commit a `pnpm-lock.yaml` too: run `pnpm install` (the workflow's
+`setup-node` cache step errors without it — the clone reminds you).
 
 All process invocation uses `execFile`/`spawn` (no shell) and path segments are
 sanitized, so web-sourced titles can't escape the `problems/` tree.
@@ -171,9 +185,9 @@ sanitized, so web-sourced titles can't escape the `problems/` tree.
 
 ```bash
 pnpm exec tsc --noEmit          # typecheck (pnpx tsc resolves the wrong package!)
-pnpm test                       # node:test via tsx; luogu fetch suites hit the network,
-                                # C++ suites are skipped without g++, and the site suite's
-                                # e2e runs a real vitepress build inside the repo (offline)
+pnpm test                       # node:test via tsx; the luogu fetch suites hit the network,
+                                # the C++ suites are skipped without g++, and the clone suite
+                                # needs git (it clones a local fixture repository)
 ```
 
 Tests live in `tests/`, following the modules they cover (`fetch.test.ts`,
