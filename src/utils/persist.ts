@@ -11,9 +11,19 @@ import matter from "gray-matter";
 
 const problemMdName = "problem.md";
 
-/** Make a single path segment safe (no separators, no "." / ".."). */
+/**
+ * Make a single path segment safe (no separators, no "." / "..").
+ *
+ * Bracket groups made of word chars only lose their brackets: a note path
+ * becomes a site route, and VitePress reads any `[word]` in a path as a
+ * *dynamic route* parameter (its `dynamicRouteRE`) — the page is then skipped
+ * unless a sibling `.paths.ts` exists, i.e. `P2748 [USACO16OPEN] …` would 404
+ * silently. Only the on-disk name changes: the frontmatter title keeps the
+ * brackets, so lists and the site sidebar still show the Luogu title. Groups
+ * with spaces/dots are already harmless (`[PA 2019]`, `[NOIP 2002 普及组]`).
+ */
 function safeSegment(segment: string): string {
-    const cleaned = segment.replace(/[/\\]/g, "_");
+    const cleaned = segment.replace(/[/\\]/g, "_").replace(/\[(\w+)\]/g, "$1");
     if (cleaned === "" || cleaned === "." || cleaned === "..") {
         throw new Error(`Invalid path segment: ${segment}`);
     }

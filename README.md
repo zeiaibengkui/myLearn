@@ -179,7 +179,12 @@ otherwise). Commit a `pnpm-lock.yaml` too: run `pnpm install` (the workflow's
 `setup-node` cache step errors without it — the clone reminds you).
 
 All process invocation uses `execFile`/`spawn` (no shell) and path segments are
-sanitized, so web-sourced titles can't escape the `problems/` tree.
+sanitized, so web-sourced titles can't escape the `problems/` tree. Note dirs
+also drop the brackets of word-only groups (`P2748 [USACO16OPEN] …` → dir
+`P2748 USACO16OPEN …`, title unchanged): VitePress reads `[word]` in a path as
+a *dynamic route* parameter and silently skips the page. Statement links that
+are root-relative on Luogu (`](/problem/P3049)`) are rewritten to absolute
+Luogu URLs on import — the site's dead-link check would otherwise fail.
 
 ## Development
 

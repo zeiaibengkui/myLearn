@@ -111,7 +111,11 @@ them).
   last argument — e.g. `codex --yolo`).
 - `g++` (luogu submit/maintain) and `markitdown` (pdf import) are optional
   system dependencies — the verb that needs them fails with a clear error.
-- Web-sourced titles are sanitized; path segments are validated on save.
+- Web-sourced titles are sanitized; path segments are validated on save. Word-only
+  bracket groups lose their brackets in the *directory* name (`P2748 [USACO16OPEN] …`
+  → `…/P2748 USACO16OPEN …/`) — the frontmatter title and the site sidebar keep them.
+  Don't "fix" the path back: VitePress treats `[word]` as a dynamic-route param and
+  drops the page. `-p` resolves either form by title, so use the pid.
 - The site renders in place — the project's own `pnpm site*` scripts (from the
   `init --online` scaffold) run VitePress on the project root; the myLearn CLI
   has no site verb. A project created without `--online` has no `.vitepress/`:

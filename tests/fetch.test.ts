@@ -1,6 +1,6 @@
 // Provider fetcher tests, using the built-in node:test runner via tsx.
 // Run: pnpm test            (some cases hit the network: Luogu is fetched live)
-// Filter: pnpm test -- --test-name-pattern "canFetch|redirects"  (offline-only runs)
+// Filter: pnpm test -- --test-name-pattern "canFetch|redirects|offline"  (offline-only runs)
 //         pnpm test -- --test-name-pattern "conversion|end to end"  (network cases)
 
 import { describe, test, mock } from "node:test";
@@ -9,8 +9,9 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { importDraft } from "../src/utils/fetcher.ts";
+import { problemDir } from "../src/utils/persist.ts";
 import fetchPdf from "../src/provider/pdf/fetch.ts";
-import fetchLuogu from "../src/provider/luogu/fetch.ts";
+import fetchLuogu, { absolutizeLuoguLinks } from "../src/provider/luogu/fetch.ts";
 import { openProblem } from "../src/utils/noteFile.ts";
 
 describe("canFetch matrix", () => {
@@ -138,6 +139,73 @@ describe("conversion (live network)", () => {
         assert.ok(d.title.length > 0);
         assert.match(d.description, /## Original PDF/);
         assert.deepEqual(d.sourceFiles, [pdf]);
+    });
+});
+
+describe("statement link rewriting (offline)", () => {
+    test("root-relative links and hrefs become absolute Luogu URLs", () => {
+        assert.equal(
+            absolutizeLuoguLinks("见 [P3049](/problem/P3049)。"),
+            "见 [P3049](https://www.luogu.com.cn/problem/P3049)。"
+        );
+        assert.equal(
+            absolutizeLuoguLinks('见 <a href="/problem/P3049">题</a>。'),
+            '见 <a href="https://www.luogu.com.cn/problem/P3049">题</a>。'
+        );
+        // already absolute — untouched
+        assert.equal(
+            absolutizeLuoguLinks("[P1](https://www.luogu.com.cn/problem/P1)"),
+            "[P1](https://www.luogu.com.cn/problem/P1)"
+        );
+        // a leading slash deeper than /problem/ is still Luogu's own path
+        assert.equal(
+            absolutizeLuoguLinks("![](/images/x.png)"),
+            "![](https://www.luogu.com.cn/images/x.png)"
+        );
+    });
+
+    test("fenced code blocks are left alone", () => {
+        const md = ["```text", "](/problem/P3049)", "```", "](/problem/P3049)"].join("\n");
+        assert.equal(
+            absolutizeLuoguLinks(md),
+            ["```text", "](/problem/P3049)", "```", "](https://www.luogu.com.cn/problem/P3049)"].join("\n")
+        );
+    });
+});
+
+describe("note dirs (offline)", () => {
+    const title = "P2748 [USACO16OPEN] Landscaping P";
+
+    test("word-only bracket groups are dropped from the dir, kept in the title", () => {
+        const root = fs.mkdtempSync(path.join(os.tmpdir(), "mylearn-test-"));
+        try {
+            const dir = problemDir(root, "luogu", title);
+            assert.equal(dir, path.join(root, "problems", "luogu", "P2748 USACO16OPEN Landscaping P"));
+            const p = importDraft(root, "luogu", { title, description: "body", sourceFiles: [] });
+            // the proxy reads problem.md — the on-disk name changed, the title did not
+            assert.equal(p.title, title);
+            assert.equal(p.category, "luogu");
+            assert.deepEqual(fs.readdirSync(path.join(root, "problems", "luogu")), [
+                "P2748 USACO16OPEN Landscaping P",
+            ]);
+            // write and lookup agree: the same title maps back to the same dir
+            assert.equal(problemDir(root, "luogu", p.title), dir);
+        } finally {
+            fs.rmSync(root, { recursive: true, force: true });
+        }
+    });
+
+    test("groups with spaces survive — VitePress only treats [word] as a route param", () => {
+        const root = fs.mkdtempSync(path.join(os.tmpdir(), "mylearn-test-"));
+        try {
+            const spaced = "P3049 [PA 2019] Flux";
+            assert.equal(
+                problemDir(root, "luogu", spaced),
+                path.join(root, "problems", "luogu", spaced)
+            );
+        } finally {
+            fs.rmSync(root, { recursive: true, force: true });
+        }
     });
 });
 

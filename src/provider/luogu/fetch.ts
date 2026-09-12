@@ -12,6 +12,8 @@
 import type { Draft, Fetcher } from "../../utils/fetcher.ts";
 
 const problemBase = "https://www.luogu.com.cn/problem/";
+/** bare origin, for making statement-relative links absolute */
+const luoguOrigin = new URL(problemBase).origin;
 const isUrl = /^https?:\/\//i;
 // Luogu pid: letters + digits, optionally more letters/digits, e.g. P4001, CF1234D, AT_abc123
 const isPid = /^[A-Za-z]+_?[A-Za-z0-9]*[0-9]+[A-Za-z0-9]*$/;
@@ -50,6 +52,29 @@ async function fetchLuoguPage(startUrl: string): Promise<Response> {
         return res;
     }
     throw new Error(`Too many redirects fetching Luogu page: ${startUrl}`);
+}
+
+/**
+ * Statements link to their own pages with root-relative URLs (`](/problem/P3049)`,
+ * `href="/problem/P3049"`). The note is rendered by the site, where `/problem/...`
+ * is a dead link — VitePress even fails the build on it — so point those at Luogu.
+ * Fenced code blocks are left alone: a statement's sample code can contain anything.
+ */
+export function absolutizeLuoguLinks(markdown: string, origin = luoguOrigin): string {
+    let inFence = false;
+    return markdown
+        .split("\n")
+        .map((line) => {
+            if (/^\s*```/.test(line)) {
+                inFence = !inFence;
+                return line;
+            }
+            if (inFence) return line;
+            return line
+                .replace(/(\]\()(\/[^\s)]*)/g, `$1${origin}$2`) // [text](/problem/P3049)
+                .replace(/(href=["'])(\/[^"']*)/g, `$1${origin}$2`); // <a href="/...">
+        })
+        .join("\n");
 }
 
 const difficultyNames = [
@@ -114,7 +139,7 @@ const fetchLuogu: Fetcher = {
     ] as const;
     const body = sections
         .filter(([, text]) => text)
-        .map(([heading, text]) => `## ${heading}\n\n${text}`)
+        .map(([heading, text]) => `## ${heading}\n\n${absolutizeLuoguLinks(text)}`)
         .join("\n\n");
 
     const samples: [string, string][] = Array.isArray(problem.samples)
