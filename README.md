@@ -163,6 +163,17 @@ the CLI refuses to start without `.mylearn/config.json` in its CWD.
   `pathname`; `og:title` also works) and the widget language follows
   `MYLEARN_LANG`. The theme re-mounts it on client-side navigation and follows
   the appearance toggle.
+  Two pages are generated from the KB's own metadata instead of from markdown:
+  `/timeline` (every note, newest first, month-grouped, filterable) and
+  `/graph` (a Cytoscape relation graph — notes as nodes, edges from category
+  hubs and from references inside the notes: Luogu pids and relative links,
+  with referenced pids that aren't in the KB linked back to Luogu). Both are
+  build-time Node loaders (`.vitepress/notes.ts` + one `.data.ts` per page);
+  dates come from file mtimes, repaired from the tracked
+  `.mylearn/index/latest.json` so a CI checkout doesn't restamp every note to
+  "today". Cytoscape is dynamically imported by that page only, and both
+  components are imported by their page rather than registered in the theme,
+  so the data stays out of the shared bundle.
 
 ## Publish to GitHub Pages
 

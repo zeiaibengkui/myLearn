@@ -79,6 +79,14 @@ invocation. The CLI refuses to start unless it finds `.mylearn/config.json`
    every `problem.md` resolves to `/problems/<cat>/<title>/`; the sidebar
    comes from the disk tree (folded, only the current path open). To publish,
    push to GitHub, then repo Settings → Pages → Source: GitHub Actions.
+   The scaffold also builds two overview pages from the KB's own metadata:
+   `/timeline` (every note, newest first) and `/graph` (a Cytoscape relation
+   graph). Both read the files at build time, so what you write feeds them: a
+   timeline date is the *file's* mtime (a note you touch today moves to the
+   top), and every Luogu pid or relative link in a note's prose becomes a graph
+   edge — cross-referencing related problems is what makes the graph worth
+   looking at. A pid referenced but not imported yet is fine: it renders as an
+   external node pointing back at Luogu.
 
 ## Command reference
 
