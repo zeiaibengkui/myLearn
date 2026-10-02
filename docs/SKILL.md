@@ -87,6 +87,10 @@ invocation. The CLI refuses to start unless it finds `.mylearn/config.json`
    edge — cross-referencing related problems is what makes the graph worth
    looking at. A pid referenced but not imported yet is fine: it renders as an
    external node pointing back at Luogu.
+   Write math however the statement does — `$ n$`, `$x$` and `$x $` all
+   render (the site patches the inline-math rule). ```mermaid fences draw as
+   diagrams in the browser; the source stays in the page when JavaScript is
+   off, so they are safe in a note.
 
 ## Command reference
 

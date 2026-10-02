@@ -174,6 +174,15 @@ the CLI refuses to start without `.mylearn/config.json` in its CWD.
   "today". Cytoscape is dynamically imported by that page only, and both
   components are imported by their page rather than registered in the theme,
   so the data stays out of the shared bundle.
+  Two content conveniences are patched into the markdown pipeline
+  (`.vitepress/markdown.ts`). Inline math accepts whitespace beside the
+  delimiter — `$ n$`, `$x$` and `$x $` all render, so notes can keep the
+  spacing the statements use (upstream rejects it, leaving the span as literal
+  text and letting its stray `$` pair up with a later one; the guard that
+  keeps `$5 … $10` prices out of the math still applies). And
+  ```mermaid fences become real diagrams, drawn in the browser by a lazily
+  imported mermaid — only pages that contain one pay for the library, and
+  without JavaScript the block shows the diagram source.
 
 ## Publish to GitHub Pages
 
